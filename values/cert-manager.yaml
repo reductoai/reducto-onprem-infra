@@ -1,0 +1,106 @@
+installCRDs: true
+ingressShim:
+  defaultIssuerGroup: cert-manager.io
+  defaultIssuerKind: ClusterIssuer
+  defaultIssuerName: letsencrypt-prod
+
+replicaCount: 2
+
+podDisruptionBudget:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
+  limits:
+    memory: 128Mi
+
+tolerations:
+- key: "CriticalAddonsOnly"
+  operator: "Exists"
+  effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: worker-type
+          operator: In
+          values:
+          - system
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values:
+          - cert-manager
+      topologyKey: "topology.kubernetes.io/zone"
+
+cainjector:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 200Mi
+    limits:
+      memory: 200Mi
+  tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - cainjector
+        topologyKey: "topology.kubernetes.io/zone"
+webhook:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 32Mi
+  tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - webhook
+        topologyKey: "topology.kubernetes.io/zone"

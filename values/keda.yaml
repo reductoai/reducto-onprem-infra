@@ -1,0 +1,97 @@
+tolerations:
+- key: "CriticalAddonsOnly"
+  operator: "Exists"
+  effect: "NoSchedule"
+
+
+podDisruptionBudget:
+  minAvailable: 1
+
+operator:
+  replicaCount: 2
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - keda-operator
+        topologyKey: "topology.kubernetes.io/zone"
+
+metricsServer:
+  replicaCount: 2
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - keda-operator-metrics-apiserver
+        topologyKey: "topology.kubernetes.io/zone"
+
+webhooks:
+  replicaCount: 2
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - keda-admission-webhooks
+        topologyKey: "topology.kubernetes.io/zone"
+
+resources:
+  # -- Manage [resource request & limits] of KEDA operator pod
+  operator:
+    limits:
+      cpu: null
+      memory: 200Mi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+  # -- Manage [resource request & limits] of KEDA metrics apiserver pod
+  metricServer:
+    limits:
+      cpu: null
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  # -- Manage [resource request & limits] of KEDA admission webhooks pod
+  webhooks:
+    limits:
+      cpu: null
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi

@@ -1,0 +1,45 @@
+controller:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 400Mi
+    limits:
+      memory: 400Mi
+
+  watchIngressWithoutClass: false
+  
+  ingressClassResource:
+    default: false
+
+  tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - ingress-nginx
+        topologyKey: "topology.kubernetes.io/zone"
+
+  service:
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-scheme                              : "internal"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled   : "true"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type                     : "ip"
+      service.beta.kubernetes.io/aws-load-balancer-type                                : "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules : "true"
