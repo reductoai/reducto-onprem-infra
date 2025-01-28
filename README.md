@@ -14,6 +14,21 @@ The project creates [Helm Release](./reducto-helm-release.tf) for Reducto on EKS
 This project demonstrates fully working cluster that's needed to run Reducto.
 Cloudflare is not a requirement, however its used here to setup TLS along with cert-manager.
 
+## Helm Chart
+
+To obtain or inspect Helm Chart and available configurations in `values.yaml`
+
+```
+# Login
+helm registry login registry.reducto.ai \
+    --username <your-username>  \
+    --password <your-password>
+
+# Get latest Helm Chart
+helm pull oci://registry.reducto.ai/reducto-api/reducto
+```
+
+
 ## Security
 
 All worklods are only created in private subnet, including NLB for ingress-nginx.
