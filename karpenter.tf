@@ -1,9 +1,10 @@
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "20.24.2"
+  version = "20.33.1"
 
   cluster_name = var.cluster_name
 
+  enable_v1_permissions           = true
   enable_pod_identity             = true
   create_pod_identity_association = true
 
@@ -20,7 +21,7 @@ resource "helm_release" "karpenter" {
   name       = "karpenter"
   repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter"
-  version    = "0.37.0"
+  version    = "1.2.1"
   wait       = false
 
   values = [
@@ -48,17 +49,28 @@ resource "helm_release" "karpenter" {
 
 resource "kubectl_manifest" "karpenter_node_class" {
   yaml_body = <<-YAML
-    apiVersion: karpenter.k8s.aws/v1beta1
+    apiVersion: karpenter.k8s.aws/v1
     kind: EC2NodeClass
     metadata:
       name: default
     spec:
-      amiFamily: AL2023
+      amiSelectorTerms:
+      - alias: bottlerocket@v1.29.0
+      userData: |
+        [settings.kubernetes]
+        image-gc-low-threshold-percent = "50"
+        image-gc-high-threshold-percent = "70"
       blockDeviceMappings:
         - deviceName: /dev/xvda
           ebs:
+            volumeSize: 4Gi
+            volumeType: gp3
+            throughput: 250
+        - deviceName: /dev/xvdb
+          ebs:
             volumeSize: 200Gi
             volumeType: gp3
+            throughput: 250
       role: ${module.karpenter.node_iam_role_name}
       subnetSelectorTerms:
         - tags:
@@ -77,7 +89,7 @@ resource "kubectl_manifest" "karpenter_node_class" {
 
 resource "kubectl_manifest" "karpenter_node_pool" {
   yaml_body = <<-YAML
-    apiVersion: karpenter.sh/v1beta1
+    apiVersion: karpenter.sh/v1
     kind: NodePool
     metadata:
       name: default
@@ -86,6 +98,8 @@ resource "kubectl_manifest" "karpenter_node_pool" {
         spec:
           nodeClassRef:
             name: default
+            group: karpenter.k8s.aws
+            kind: EC2NodeClass
           requirements:
             - key: "karpenter.k8s.aws/instance-category"
               operator: In
@@ -103,9 +117,10 @@ resource "kubectl_manifest" "karpenter_node_pool" {
               operator: In
               values: [ "c5d", "c5n", "c6a", "c6i", "c6in" ]
       disruption:
-        consolidationPolicy: WhenUnderutilized
         budgets:
         - nodes: 100%
+        consolidateAfter: 5s
+        consolidationPolicy: WhenEmptyOrUnderutilized
   YAML
 
   depends_on = [
