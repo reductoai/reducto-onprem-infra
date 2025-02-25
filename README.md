@@ -2,6 +2,8 @@
 
 Install Reducto on EKS using Terraform.
 
+![Reducto on-prem Architecture](./reducto-architecture-large.png)
+
 ## Overview
 
 The project creates [Helm Release](./reducto-helm-release.tf) for Reducto on EKS in `reducto` namespace. And creates following required dependencies:
