@@ -21,24 +21,24 @@ module "vpc" {
   public_subnets  = local.public_subnets_cidrs
 
   // One NAT Gateway per availability zone
-  enable_nat_gateway   = true
-  single_nat_gateway   = false
+  enable_nat_gateway     = true
+  single_nat_gateway     = false
   one_nat_gateway_per_az = true
 
   // https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html#cluster-endpoint-private
   enable_dns_hostnames = true
-  enable_dns_support = true
+  enable_dns_support   = true
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}"   = "shared"
-    "kubernetes.io/role/elb"                      = 1
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "kubernetes.io/role/elb"                    = 1
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.cluster_name}"    = "shared"
-    "kubernetes.io/role/internal-elb"              = 1
-    "karpenter.sh/discovery"                       = var.cluster_name
-    "karpenter.sh/discovery/${var.cluster_name}"   = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}"  = "shared"
+    "kubernetes.io/role/internal-elb"            = 1
+    "karpenter.sh/discovery"                     = var.cluster_name
+    "karpenter.sh/discovery/${var.cluster_name}" = "shared"
   }
 }
 

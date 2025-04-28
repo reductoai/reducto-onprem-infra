@@ -1,5 +1,5 @@
 variable "region" {
-    default = "us-east-1"
+  default = "us-east-1"
 }
 
 variable "cluster_name" {
@@ -23,19 +23,19 @@ variable "public_subnets" {
 }
 
 variable "cluster_endpoint_public_access" {
-  type = bool
+  type    = bool
   default = true
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
-  type = list(string)
-  default = [ "0.0.0.0/0" ]
+  type    = list(string)
+  default = ["0.0.0.0/0"]
 }
 
 variable "db_instance_class" {
-  type = string
+  type        = string
   description = "Instance class for Reducto Postgres database"
-  default = "db.t4g.medium"
+  default     = "db.t4g.medium"
 }
 
 variable "db_multi_az" {
@@ -47,7 +47,7 @@ variable "db_deletion_protection" {
 }
 
 variable "db_username" {
-  default = "reducto"
+  default     = "reducto"
   description = "Postgres DB username"
 }
 
@@ -56,18 +56,18 @@ variable "reducto_helm_repo_username" {
 }
 
 variable "reducto_helm_repo_password" {
-  sensitive = true
+  sensitive   = true
   description = "Password for Helm Registry for Reducto Helm Chart"
 }
 
 variable "reducto_helm_chart_version" {
   description = "Reducto Helm Chart version"
-  default = "1.9.55"
+  default     = "1.9.55"
 }
 
 variable "reducto_helm_chart" {
   description = "Path to Helm Chart on OCI registry"
-  default = "oci://registry.reducto.ai/reducto-api/reducto"
+  default     = "oci://registry.reducto.ai/reducto-api/reducto"
 }
 
 variable "reducto_host" {
@@ -76,5 +76,5 @@ variable "reducto_host" {
 
 variable "cloudflare_api_token" {
   description = "Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates"
-  sensitive = true
+  sensitive   = true
 }

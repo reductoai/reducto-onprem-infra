@@ -1,28 +1,28 @@
 terraform {
   required_providers {
     aws = {
-          source  = "hashicorp/aws"
-          version = "~> 5.92.0"
+      source  = "hashicorp/aws"
+      version = "~> 5.92.0"
     }
     helm = {
-        source  = "hashicorp/helm"
-        version = "~> 2.17.0"
+      source  = "hashicorp/helm"
+      version = "~> 2.17.0"
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
       version = "~> 1.19.0"
     }
     kubernetes = {
-        source = "hashicorp/kubernetes"
-        version = "~> 2.33.0"
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.33.0"
     }
     random = {
-        source = "hashicorp/random"
-        version = "~> 3.6.3"
+      source  = "hashicorp/random"
+      version = "~> 3.6.3"
     }
     null = {
-        source = "hashicorp/null"
-        version = "~> 3.2.3"
+      source  = "hashicorp/null"
+      version = "~> 3.2.3"
     }
   }
 
@@ -30,7 +30,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.region
+  region = var.region
 }
 
 data "aws_eks_cluster_auth" "eks" {

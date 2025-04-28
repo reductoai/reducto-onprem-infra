@@ -14,35 +14,35 @@ module "rds" {
   # When using RDS Proxy w/ IAM auth - Database must be username/password auth, not IAM
   iam_database_authentication_enabled = false
 
-  identifier            = var.cluster_name
-  engine                = "postgres"
-  engine_version        = "16.6"
-  family                = "postgres16" # DB parameter group
-  major_engine_version  = "16"         # DB option group
-  instance_class        = var.db_instance_class
+  identifier           = var.cluster_name
+  engine               = "postgres"
+  engine_version       = "16.6"
+  family               = "postgres16" # DB parameter group
+  major_engine_version = "16"         # DB option group
+  instance_class       = var.db_instance_class
 
   storage_type          = "gp3"
   allocated_storage     = 20
   max_allocated_storage = 200
-  storage_encrypted = true
+  storage_encrypted     = true
 
-  port                  = 5432
-  apply_immediately     = true
+  port              = 5432
+  apply_immediately = true
 
   db_subnet_group_name   = aws_db_subnet_group.default.id
   vpc_security_group_ids = [module.rds_sg.security_group_id]
   multi_az               = var.db_multi_az
 
-  backup_retention_period = 7
-  backup_window = "03:00-06:00"
-  maintenance_window = "sun:06:00-sun:07:00"
-  deletion_protection     = var.db_deletion_protection
+  backup_retention_period    = 7
+  backup_window              = "03:00-06:00"
+  maintenance_window         = "sun:06:00-sun:07:00"
+  deletion_protection        = var.db_deletion_protection
   auto_minor_version_upgrade = true
-  copy_tags_to_snapshot = true
-  publicly_accessible = false
-  skip_final_snapshot = false
+  copy_tags_to_snapshot      = true
+  publicly_accessible        = false
+  skip_final_snapshot        = false
 
-  performance_insights_enabled = true
+  performance_insights_enabled          = true
   performance_insights_retention_period = 7
 
   monitoring_interval = 30
@@ -69,7 +69,7 @@ module "rds_sg" {
     }
   ]
 
-   egress_with_cidr_blocks = [
+  egress_with_cidr_blocks = [
     {
       description = "Database subnet PostgreSQL access"
       rule        = "postgresql-tcp"
@@ -90,8 +90,8 @@ locals {
 resource "aws_secretsmanager_secret_version" "superuser" {
   secret_id = aws_secretsmanager_secret.superuser.id
   secret_string = jsonencode({
-    username            = var.db_username
-    password            = random_password.db_password.result
+    username     = var.db_username
+    password     = random_password.db_password.result
     database_url = local.database_url
   })
 }
