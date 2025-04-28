@@ -109,3 +109,14 @@ You can remove deletion protection by setting `var.db_deletion_protection = fals
 - Bucket not empty
 
 So along side `terraform destroy` you'll need to manually delete above resources from AWS console.
+
+## Notes on NLB for Nginx
+
+To customize NLB configuration:
+- See [AWS Load Balancer controller annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/) for Service.
+- For [NLB TLS Termination](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/use_cases/nlb_tls_termination/) with ACM ssl cert (without cert-manager), configure target port in `values/ingress-nginx-controller.yaml`.
+   ```
+   service:
+     targetPorts:
+       https: http
+   ```
