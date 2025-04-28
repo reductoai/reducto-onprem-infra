@@ -101,3 +101,8 @@ You can remove deletion protection by setting `var.db_deletion_protection = fals
 - Bucket not empty
 
 So along side `terraform destroy` you'll need to manually delete above resources from AWS console.
+
+# Sema4ai Manual Steps
+
+* We did not use Cloudflare+LetsEncrypt. We manually created a cert in ACM and used that instead.
+* On a fresh AWS account, we had to run `aws iam create-service-linked-role --aws-service-name spot.amazonaws.com` before Karpenter would autoscale.
