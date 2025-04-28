@@ -21,6 +21,7 @@ resource "helm_release" "reducto" {
     env:
       DATABASE_URL: ${local.database_url}
       BUCKET: ${aws_s3_bucket.reducto_storage.bucket}
+      OPENAI_API_KEY: ${var.openai_api_key}
     EOT
   ]
 
@@ -32,6 +33,6 @@ resource "helm_release" "reducto" {
     helm_release.ingress_nginx,
     helm_release.karpenter,
     helm_release.keda,
-    helm_release.cert_manager,
+    # helm_release.cert_manager,
   ]
 }

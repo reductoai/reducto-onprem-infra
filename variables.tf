@@ -62,7 +62,7 @@ variable "reducto_helm_repo_password" {
 
 variable "reducto_helm_chart_version" {
   description = "Reducto Helm Chart version"
-  default = "1.8.10-1-g668cbf06"
+  default = "1.9.55"
 }
 
 variable "reducto_helm_chart" {
@@ -74,7 +74,8 @@ variable "reducto_host" {
   description = "Full host DNS for Reducto (Example: reducto.mydomain.com)"
 }
 
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates"
+variable "openai_api_key" {
   sensitive = true
 }
+
+
