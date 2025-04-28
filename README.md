@@ -89,6 +89,14 @@ kubectl port-forward service/reducto-reducto-http 4567:80 -n reducto
 curl localhost:4567
 ```
 
+## New AWS account
+
+For Karpenter to [request spot instances](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/service-linked-roles-spot-instance-requests.html), create the service-linked role:
+
+```sh
+aws iam create-service-linked-role --aws-service-name spot.amazonaws.com
+```
+
 ## Notes on Destroy
 
 To `terraform destroy`, comment out the `lifecycle` block in `reducto-bucket.tf` and remove deletion protection from DB.
