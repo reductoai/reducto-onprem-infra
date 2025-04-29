@@ -10,7 +10,7 @@ stringData:
   api-token: ${var.cloudflare_api_token}
   YAML
 
-  depends_on = [ helm_release.cert_manager ]
+  depends_on = [helm_release.cert_manager]
 }
 
 resource "helm_release" "cert_manager" {

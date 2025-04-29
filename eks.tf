@@ -5,9 +5,9 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = "1.31"
 
-  cluster_endpoint_public_access = var.cluster_endpoint_public_access
+  cluster_endpoint_public_access       = var.cluster_endpoint_public_access
   cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
-  cluster_endpoint_private_access = true
+  cluster_endpoint_private_access      = true
 
   enable_cluster_creator_admin_permissions = true
 
@@ -201,13 +201,13 @@ module "ebs_csi_irsa_role" {
 }
 
 resource "aws_security_group_rule" "allow_eks_cluster_access_from_vpc" {
-  description = "Allow EKS Control Plane API access from VPC"
-  type                     = "ingress"
-  from_port                = 443
-  to_port                  = 443
-  protocol                 = "tcp"
-  security_group_id        = module.eks.cluster_security_group_id
-  cidr_blocks = [var.vpc_cidr]
+  description       = "Allow EKS Control Plane API access from VPC"
+  type              = "ingress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = module.eks.cluster_security_group_id
+  cidr_blocks       = [var.vpc_cidr]
 }
 
 resource "aws_security_group_rule" "webhook_admission_inbound" {

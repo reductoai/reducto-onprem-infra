@@ -1,14 +1,14 @@
 resource "helm_release" "reducto" {
-  namespace  = "reducto"
-  name       = "reducto"
+  namespace        = "reducto"
+  name             = "reducto"
   create_namespace = true
 
   repository_username = var.reducto_helm_repo_username
   repository_password = var.reducto_helm_repo_password
 
-  chart = var.reducto_helm_chart
-  version    = var.reducto_helm_chart_version
-  wait       = false
+  chart   = var.reducto_helm_chart
+  version = var.reducto_helm_chart_version
+  wait    = false
 
   values = [
     "${file("values/reducto.yaml")}",

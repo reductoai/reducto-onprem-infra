@@ -89,6 +89,14 @@ kubectl port-forward service/reducto-reducto-http 4567:80 -n reducto
 curl localhost:4567
 ```
 
+## New AWS account
+
+For Karpenter to [request spot instances](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/service-linked-roles-spot-instance-requests.html), create the service-linked role:
+
+```sh
+aws iam create-service-linked-role --aws-service-name spot.amazonaws.com
+```
+
 ## Notes on Destroy
 
 To `terraform destroy`, comment out the `lifecycle` block in `reducto-bucket.tf` and remove deletion protection from DB.
@@ -101,3 +109,14 @@ You can remove deletion protection by setting `var.db_deletion_protection = fals
 - Bucket not empty
 
 So along side `terraform destroy` you'll need to manually delete above resources from AWS console.
+
+## Notes on NLB for Nginx
+
+To customize NLB configuration:
+- See [AWS Load Balancer controller annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/) for Service, and [Ingress Nginx Helm Chart](https://github.com/kubernetes/ingress-nginx/tree/helm-chart-4.11.2/charts/ingress-nginx) configuration.
+- For [NLB TLS Termination](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/use_cases/nlb_tls_termination/) with ACM ssl cert (without cert-manager), configure target port in `values/ingress-nginx-controller.yaml`.
+   ```
+   service:
+     targetPorts:
+       https: http
+   ```

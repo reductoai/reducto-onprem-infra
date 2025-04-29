@@ -13,7 +13,7 @@ module "karpenter" {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
 
-  depends_on = [ module.eks ]
+  depends_on = [module.eks]
 }
 
 resource "helm_release" "karpenter" {
