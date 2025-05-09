@@ -78,3 +78,15 @@ variable "cloudflare_api_token" {
   description = "Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates"
   sensitive   = true
 }
+
+# Configuration for monitoring and alerting
+
+variable "slack_api_url" {
+  description = "Slack API URL for Alertmanager"
+  sensitive   = true
+}
+
+variable "slack_channel" {
+  description = "Slack channel where Alertmanager will send alerts"
+  default     = "#reducto-alerts"
+}
