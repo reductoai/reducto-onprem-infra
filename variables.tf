@@ -82,7 +82,7 @@ variable "cloudflare_api_token" {
 # Configuration for monitoring and alerting
 
 variable "slack_api_url" {
-  description = "Slack API URL for Alertmanager"
+  description = "Slack API/Webhook URL for Alertmanager"
   sensitive   = true
 }
 
