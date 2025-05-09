@@ -60,8 +60,7 @@ reducto_host = "reducto.example.com"
 cloudflare_api_token = "token"
 
 # For alerting
-slack_api_url = "webhook_or_api_url"
-slack_channel = "#channel"
+slack_webhook_url = "todo"
 ```
 
 ### Provisioning

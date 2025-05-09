@@ -46,12 +46,12 @@ resource "helm_release" "kube_prometheus_stack" {
     alertmanager:
       config:
         global:
-          slack_api_url: ${var.slack_api_url}
+          slack_api_url: ${var.slack_webhook_url}
         receivers:
         - name: blackhole
         - name: reducto-alerts
           slack_configs:
-          - channel: '${var.slack_channel}'
+          - channel: '#reducto-alerts'
             send_resolved: true
     EOT
 

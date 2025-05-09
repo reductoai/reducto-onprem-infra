@@ -81,12 +81,8 @@ variable "cloudflare_api_token" {
 
 # Configuration for monitoring and alerting
 
-variable "slack_api_url" {
-  description = "Slack API/Webhook URL for Alertmanager"
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Alertmanager"
   sensitive   = true
 }
 
-variable "slack_channel" {
-  description = "Slack channel where Alertmanager will send alerts"
-  default     = "#reducto-alerts"
-}
