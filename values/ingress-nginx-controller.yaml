@@ -36,6 +36,11 @@ controller:
             - ingress-nginx
         topologyKey: "topology.kubernetes.io/zone"
 
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
   service:
     annotations:
       service.beta.kubernetes.io/aws-load-balancer-scheme                              : "internal"

@@ -63,3 +63,18 @@ resource "helm_release" "kube_prometheus_stack" {
     helm_release.ingress_nginx,
   ]
 }
+
+
+data "kubectl_filename_list" "prometheus_rules" {
+  pattern = "./manifests/prometheus/rules/*.yaml"
+}
+
+resource "kubectl_manifest" "prometheus_rules" {
+  count     = length(data.kubectl_filename_list.prometheus_rules.matches)
+  yaml_body = file(element(data.kubectl_filename_list.prometheus_rules.matches, count.index))
+
+  depends_on = [
+    helm_release.prometheus_crds,
+    helm_release.kube_prometheus_stack,
+  ]
+}
