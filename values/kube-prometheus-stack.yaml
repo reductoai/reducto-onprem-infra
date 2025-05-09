@@ -1,0 +1,238 @@
+crds:
+  enabled: false
+
+defaultRules:
+  create: false
+
+alertmanager:
+  serviceMonitor:
+    selfMonitor: false
+
+  config:
+    global:
+      resolve_timeout: 1m
+    route:
+      receiver: 'reducto-alerts'
+      group_by: ['alertname', 'cluster', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+      - receiver: 'blackhole'
+        match:
+          alertname: Watchdog
+
+    templates:
+    - '/etc/alertmanager/config/*.tmpl'
+
+  templateFiles:
+    slack.tmpl: |-
+      {{/* Severity of the alert */}}
+      {{ define "__alert_severity" -}}
+          {{- if eq .CommonLabels.severity "critical" -}}
+          *Severity:* `Critical`
+          {{- else if eq .CommonLabels.severity "warning" -}}
+          *Severity:* `Warning`
+          {{- else if eq .CommonLabels.severity "info" -}}
+          *Severity:* `Info`
+          {{- else -}}
+          *Severity:* :question: {{ .CommonLabels.severity }}
+          {{- end }}
+      {{- end }}
+
+      {{ define "__single_message_title" }}{{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}
+
+      {{ define "slack.default.title" }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len .Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }}{{ template "__single_message_title" . }}{{ end }}{{ end }}
+
+      {{ define "slack.default.text" }}
+      {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len .Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }}
+      {{ range .Alerts.Firing }}
+      {{ if .Annotations.summary }}*Alert:* {{ .Annotations.summary }}{{ end }}
+      {{ if .Annotations.description }}*Description:* {{ .Annotations.description }}{{ end }}
+      {{ if .Annotations.logsUrl }}*LogsUrl:* <{{ .Annotations.logsUrl }}|click here>{{ end }}
+      *Details:*
+      {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+      {{ end }}
+      {{ end }}
+
+      {{ range .Alerts.Resolved }}
+      {{ if .Annotations.summary }}*Alert:* {{ .Annotations.summary }}{{ end }}
+      {{ if .Annotations.description }}*Description:* {{ .Annotations.description }}{{ end }}
+      *Details:*
+      {{ range .Labels.SortedPairs }} • *{{ .Name }}:* `{{ .Value }}`
+      {{ end }}
+      {{ end }}
+      {{ else }}
+      {{ if gt (len .Alerts.Firing) 0 }}
+      *Alerts Firing:*
+      {{ range .Alerts.Firing }}- `{{ .Labels.alertname }}` - {{ .Annotations.description }}
+      {{ end }}
+      *Common Labels:*
+      {{ range .GroupLabels.SortedPairs -}} • *{{ .Name }}:* `{{ .Value }}`
+      {{ end }}
+      {{ end }}
+      {{ if gt (len .Alerts.Resolved) 0 }}
+      *Alerts Resolved:*
+      {{ range .Alerts.Resolved }}- `{{ .Labels.alertname }}` - {{ .Annotations.description }}
+      {{ end }}
+      *Common Labels:*
+      {{ range .GroupLabels.SortedPairs -}} • *{{ .Name }}:* `{{ .Value }}`
+      {{ end }}
+      {{ end }}
+      {{ end }}
+      {{ end }}
+
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          resources:
+            requests:
+              storage: 1Gi
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 128Mi
+
+    tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: worker-type
+              operator: In
+              values:
+              - system
+
+prometheusOperator:
+  resources:
+    limits:
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: worker-type
+            operator: In
+            values:
+            - system
+        - matchExpressions:
+          - key: karpenter.sh/capacity-type
+            operator: In
+            values:
+            - on-demand
+
+prometheus:
+  ingress:
+    enabled: false
+
+  prometheusSpec:
+    serviceAccountName: prometheus
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    retention: 15d
+    retentionSize: 10GB #
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp2
+          resources:
+            requests:
+              storage: 20Gi
+    resources:
+      requests:
+        cpu: 1
+        memory: 4Gi
+
+    tolerations:
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: worker-type
+              operator: In
+              values:
+              - system
+
+    containers:
+      - name: prometheus
+        livenessProbe:
+          failureThreshold: 6
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        startupProbe:
+          failureThreshold: 30
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 10
+
+grafana:
+  enabled: false
+
+kubernetesServiceMonitors:
+  enabled: false
+
+kubeApiServer:
+  enabled: false
+
+kubelet:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+coreDns:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeStateMetrics:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+nodeExporter:
+  enabled: false
+
+prometheusNodeExporter:
+  enabled: false

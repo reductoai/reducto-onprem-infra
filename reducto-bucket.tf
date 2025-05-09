@@ -21,6 +21,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "reducto_storage_lifecycle" {
     expiration {
       days = 1
     }
+
+    filter {
+      prefix = ""
+    }
   }
 }
 

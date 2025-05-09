@@ -78,3 +78,11 @@ variable "cloudflare_api_token" {
   description = "Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates"
   sensitive   = true
 }
+
+# Configuration for monitoring and alerting
+
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Alertmanager"
+  sensitive   = true
+}
+

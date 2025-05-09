@@ -1,0 +1,69 @@
+replicaCount: 1
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+  limits:
+    memory: 128Mi
+
+tolerations:
+- key: "CriticalAddonsOnly"
+  operator: "Exists"
+  effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: worker-type
+          operator: In
+          values:
+          - system
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - telegraf
+      topologyKey: "topology.kubernetes.io/zone"
+
+envFromSecret: "telegraf"
+
+
+config:
+  agent:
+    interval: "10s"
+    round_interval: true
+    metric_batch_size: 1000
+    metric_buffer_limit: 10000
+    collection_jitter: "0s"
+    flush_interval: "10s"
+    flush_jitter: "0s"
+    precision: ""
+    hostname: ""
+    omit_hostname: false
+
+  inputs:
+    - postgresql_extensible:
+        address: "${DATABASE_URL}"
+        query:
+          - measurement: "reducto_tasks"
+            sqlquery: "SELECT COUNT(*) AS count FROM tasks;"
+            tagvalue: ""
+          - measurement: "reducto_prioritytasks"
+            sqlquery: "SELECT COUNT(*) AS count FROM prioritytasks;"
+            tagvalue: ""
+
+  outputs:
+    - prometheus_client:
+        listen: ":9273"
+        metric_version: 2
+        path: "/metrics"
+        expiration_interval: "60s"
+        export_timestamp: false
+
+

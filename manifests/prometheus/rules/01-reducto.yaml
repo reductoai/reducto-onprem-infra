@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: reducto
+  namespace: monitoring
+spec:
+  groups:
+  - name: reducto
+    rules:
+    - alert: ReductoTaskQueueStuck
+      annotations:
+        description: Task queue has been stuck with {{ $value }} tasks for 30 mins. Check workers Pod statuses or logs
+      expr: reducto_tasks_count > 10
+      for: 30m
+      labels:
+        severity: critical
+    - alert: ReductoPriorityTaskQueueStuck
+      annotations:
+        description: Priority Task queue has been stuck with {{ $value }} tasks for 30 mins. Check workers Pod statuses or logs.
+      expr: reducto_prioritytasks_count > 10
+      for: 30m
+      labels:
+        severity: critical
+    - alert: ReductoPersistent5XX
+      annotations:
+        description: Persistent 5XX HTTP requests. Check HTTP Pods or logs for errors.
+      expr: |-
+        round(
+          sum(
+            increase(nginx_ingress_controller_requests{ingress="reducto-reducto-http-ingress",status=~"5.+"}[15m])
+          )
+        ) >= 5
+      for: 15m
+      labels:
+        severity: critical
