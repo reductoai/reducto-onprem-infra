@@ -78,4 +78,9 @@ variable "openai_api_key" {
   sensitive = true
 }
 
+variable "reducto_nlb_cert_arn" {
+  description = "ARN of the SSL certificate for the NLB"
+  type        = string
+}
+
 

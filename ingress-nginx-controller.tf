@@ -7,7 +7,9 @@ resource "helm_release" "ingress_nginx" {
   create_namespace = true
 
   values = [
-    "${file("values/ingress-nginx-controller.yaml")}",
+    templatefile("${path.module}/values/ingress-nginx-controller.yaml", {
+      reducto_nlb_cert_arn = var.reducto_nlb_cert_arn
+    })
   ]
 
   depends_on = [

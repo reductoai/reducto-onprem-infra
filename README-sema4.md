@@ -11,6 +11,7 @@ reducto_helm_repo_username = "ram@sema4.ai"
 reducto_helm_repo_password = "..."
 reducto_host = "reducto.sema4ai.dev"
 openai_api_key = "..."
+reducto_nlb_cert_arn = "..."
 ```
 
 ## Choosing environments
@@ -20,4 +21,4 @@ We use the partial configuration of backend to support multiple environments.
 Before running a `terraform plan|apply`, run the corresponding `make init-dev` or `make init-prod` to
 reconfigure your local Terraform project for the dev/prod environment.
 
-Then, the corresponding make targets `make plan-dev`/`make plan-prod` or `make apply-dev`/`make apply-prod`
+Then, the corresponding make targets `make plan-dev`/`make plan-prod` or `make apply-dev`/`make apply-prod`.
