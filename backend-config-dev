@@ -1,0 +1,2 @@
+region 	= "us-east-1"
+bucket	= "reducto-terraform-states-account-247681840182"
