@@ -16,7 +16,7 @@ module "rds" {
 
   identifier            = var.cluster_name
   engine                = "postgres"
-  engine_version        = "16.6"
+  engine_version        = "16.8"
   family                = "postgres16" # DB parameter group
   major_engine_version  = "16"         # DB option group
   instance_class        = var.db_instance_class
