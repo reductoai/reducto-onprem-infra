@@ -19,7 +19,7 @@ resource "helm_release" "reducto" {
       annotations:
         eks.amazonaws.com/role-arn: ${aws_iam_role.reducto.arn}
     env:
-      DATABASE_URL: ${local.database_url}
+      DATABASE_URL: ${local.pooled_database_url}
       BUCKET: ${aws_s3_bucket.reducto_storage.bucket}
     EOT
   ]

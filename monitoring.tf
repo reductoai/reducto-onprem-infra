@@ -60,7 +60,6 @@ resource "helm_release" "kube_prometheus_stack" {
   depends_on = [
     kubectl_manifest.monitoring_ns,
     helm_release.prometheus_crds,
-    helm_release.ingress_nginx,
   ]
 }
 
