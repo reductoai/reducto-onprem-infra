@@ -136,8 +136,15 @@ module "rds_proxy" {
 
 }
 
+resource "random_string" "secret_suffix" {
+  length  = 3
+  special = false
+  upper   = false
+  lower   = true
+}
+
 resource "aws_secretsmanager_secret" "superuser" {
-  name        = "rds-${var.cluster_name}"
+  name        = "rds-${var.cluster_name}-${random_string.secret_suffix.result}"
   description = "Database superuser, ${var.db_username}, database connection values"
 }
 
