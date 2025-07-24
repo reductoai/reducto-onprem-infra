@@ -12,6 +12,7 @@ resource "helm_release" "ingress_nginx" {
 
   depends_on = [
     helm_release.aws_load_balancer_controller,
-    module.eks
+    module.eks,
+    helm_release.kube_prometheus_stack,
   ]
 }
