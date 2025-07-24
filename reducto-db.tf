@@ -78,21 +78,81 @@ module "rds_sg" {
   ]
 }
 
+module "rds_proxy_sg" {
+  source  = "terraform-aws-modules/security-group/aws"
+  version = "~> 5.2"
+
+  name   = "rds_proxy"
+  vpc_id = module.vpc.vpc_id
+
+  revoke_rules_on_delete = true
+
+  ingress_with_cidr_blocks = [
+    {
+      description = "Private subnet PostgreSQL access"
+      rule        = "postgresql-tcp"
+      cidr_blocks = var.vpc_cidr
+    }
+  ]
+
+  egress_with_cidr_blocks = [
+    {
+      description = "Database subnet PostgreSQL access"
+      rule        = "postgresql-tcp"
+      cidr_blocks = var.vpc_cidr
+    },
+  ]
+
+}
+
+module "rds_proxy" {
+  source  = "terraform-aws-modules/rds-proxy/aws"
+  version = "~> 3.1"
+
+  name                   = var.cluster_name
+  iam_role_name          = "${var.cluster_name}-rds-proxy"
+  vpc_subnet_ids         = module.vpc.private_subnets
+  vpc_security_group_ids = [module.rds_proxy_sg.security_group_id]
+
+  auth = {
+    (var.db_username) = {
+      description               = aws_secretsmanager_secret.superuser.description
+      secret_arn                = aws_secretsmanager_secret.superuser.arn
+      client_password_auth_type = "POSTGRES_SCRAM_SHA_256"
+      iam_auth                  = "DISABLED"
+    }
+  }
+
+  engine_family = "POSTGRESQL"
+  debug_logging = false
+
+  # Target RDS instance
+  target_db_instance     = true
+  db_instance_identifier = module.rds.db_instance_identifier
+
+  tags = {
+    Environment = var.cluster_name
+  }
+
+}
+
 resource "aws_secretsmanager_secret" "superuser" {
   name        = "rds-${var.cluster_name}"
   description = "Database superuser, ${var.db_username}, database connection values"
 }
 
 locals {
-  database_url = "postgresql://${var.db_username}:${random_password.db_password.result}@${split(":", module.rds.db_instance_endpoint)[0]}/postgres?sslmode=require"
+  database_url        = "postgresql://${var.db_username}:${random_password.db_password.result}@${split(":", module.rds.db_instance_endpoint)[0]}/postgres?sslmode=require"
+  pooled_database_url = "postgresql://${var.db_username}:${random_password.db_password.result}@${module.rds_proxy.proxy_endpoint}/postgres?sslmode=require"
 }
 
 resource "aws_secretsmanager_secret_version" "superuser" {
   secret_id = aws_secretsmanager_secret.superuser.id
   secret_string = jsonencode({
-    username     = var.db_username
-    password     = random_password.db_password.result
-    database_url = local.database_url
+    username            = var.db_username
+    password            = random_password.db_password.result
+    database_url        = local.database_url
+    pooled_database_url = local.pooled_database_url
   })
 }
 
