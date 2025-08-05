@@ -22,6 +22,7 @@ resource "helm_release" "reducto" {
       DATABASE_URL: ${local.database_url}
       BUCKET: ${aws_s3_bucket.reducto_storage.bucket}
       OPENAI_API_KEY: ${var.openai_api_key}
+      SKIP_AUTH: 1
     EOT
   ]
 

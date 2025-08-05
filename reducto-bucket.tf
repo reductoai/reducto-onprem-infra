@@ -18,6 +18,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "reducto_storage_lifecycle" {
     id     = "delete-after-24-hours"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = 1
     }
