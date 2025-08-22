@@ -92,13 +92,17 @@ kubectl port-forward service/reducto-reducto-http 4567:80 -n reducto
 curl localhost:4567
 ```
 
-## New AWS account
+## New AWS account and Quotas
 
 For Karpenter to [request spot instances](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/service-linked-roles-spot-instance-requests.html), create the service-linked role:
 
 ```sh
 aws iam create-service-linked-role --aws-service-name spot.amazonaws.com
 ```
+
+Ensure that your AWS region has sufficient quota for following:
+1. EC2-VPC Elastic IP (for NAT gateways)
+2. Compute Optimized On-Demand and Spot Instances
 
 ## Notes on Destroy
 
