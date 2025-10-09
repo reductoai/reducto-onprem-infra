@@ -1,0 +1,12 @@
+datadog:
+  apiKeyExistingSecret: datadog-secret
+
+  otelCollector:
+    enabled: true
+    ports:
+      - containerPort: "4317" # default port for OpenTelemetry gRPC receiver.
+        hostPort: "4317"
+        name: otel-grpc
+      - containerPort: "4318" # default port for OpenTelemetry HTTP receiver
+        hostPort: "4318"
+        name: otel-http
