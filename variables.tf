@@ -86,3 +86,14 @@ variable "slack_webhook_url" {
   sensitive   = true
 }
 
+variable "datadog_site" {
+  description = "Datadog site"
+  default     = "us5.datadoghq.com"
+}
+
+variable "datadog_api_key" {
+  description = "Datadog API key"
+  sensitive   = true
+  default     = ""
+}
+

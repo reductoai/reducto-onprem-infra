@@ -12,6 +12,7 @@ resource "helm_release" "reducto" {
 
   values = [
     "${file("values/reducto.yaml")}",
+    var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
     <<-EOT
     ingress:
       host: ${var.reducto_host}
