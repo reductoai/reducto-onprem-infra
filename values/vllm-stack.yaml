@@ -1,0 +1,45 @@
+# vLLM Helm chart example values
+# servingEngineSpec:
+#   runtimeClassName: "nvidia"
+  
+#   # configuring for multiple serving engines deployments that runs different models
+#   modelSpec:
+#     - name: "llama3-8b"
+#       repository: "vllm/vllm-openai"
+#       tag: "latest"
+#       modelURL: meta-llama/Meta-Llama-3-8B-Instruct
+#       replicaCount: 1
+#       requestCPU: 4
+#       requestMemory: "16Gi"
+#       requestGPU: 1
+#       requestGPUType: "nvidia.com/gpu"
+
+#       # Node selection criteria
+#       nodeSelectorTerms:
+#         - matchExpressions:
+#             - key: "nvidia.com/gpu.product"
+#               operator: "In"
+#               values: ["A100-SXM4-80GB"]
+
+#       hf_token:
+#         secretName: "hf-token-secret"
+#         secretKey: "token"
+
+#     - name: "mixtral-8x7b"
+#       repository: "vllm/vllm-openai"
+#       tag: "latest"
+#       modelURL: mistralai/Mixtral-8x7B-Instruct-v0.1
+#       replicaCount: 1
+#       requestCPU: 4
+#       requestMemory: "16Gi"
+#       requestGPU: 1
+#       requestGPUType: "nvidia.com/gpu"
+#       nodeSelectorTerms:
+#         - matchExpressions:
+#             - key: "nvidia.com/gpu.product"
+#               operator: "In"
+#               values: ["H100-PCIe-80GB"]
+
+#       hf_token:
+#         secretName: "hf-token-secret"
+#         secretKey: "token"
