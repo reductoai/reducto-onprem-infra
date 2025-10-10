@@ -97,3 +97,17 @@ variable "datadog_api_key" {
   default     = ""
 }
 
+# Configuration for vLLM
+
+variable "enable_vllm_stack" {
+  type    = bool
+  default = false
+}
+
+variable "vllm_stack_hf_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+
