@@ -99,15 +99,29 @@ variable "datadog_api_key" {
 
 # Configuration for vLLM
 
+variable "enable_gpu_node_group" {
+  type        = bool
+  default     = false
+  description = "Whether to create the GPU node group in the EKS cluster"
+}
+
+variable "enable_nvidia_device_plugin" {
+  type        = bool
+  default     = false
+  description = "Whether to install the NVIDIA device plugin for GPU support"
+}
+
 variable "enable_vllm_stack" {
-  type    = bool
-  default = false
+  type        = bool
+  default     = false
+  description = "Whether to deploy the vLLM stack on the cluster"
 }
 
 variable "vllm_stack_hf_token" {
-  type      = string
-  sensitive = true
-  default   = ""
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Hugging Face API token used by the vLLM stack for model access"
 }
 
 

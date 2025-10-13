@@ -1,21 +1,13 @@
-resource "kubernetes_namespace" "vllm_stack" {
-  count = var.enable_vllm_stack ? 1 : 0
-
-  metadata {
-    name = "vllm-stack"
-  }
-
-  depends_on = [module.eks]
-}
-
 resource "kubernetes_secret" "hf_token" {
   count = var.enable_vllm_stack ? 1 : 0
   metadata {
     name      = "hf-token-secret"
-    namespace = kubernetes_namespace.vllm_stack[0].metadata[0].name
+    namespace = "reducto"
   }
   type = "Opaque"
   data = { token = var.vllm_stack_hf_token }
+
+  depends_on = [helm_release.reducto]
 }
 
 resource "helm_release" "vllm_stack" {
@@ -25,7 +17,7 @@ resource "helm_release" "vllm_stack" {
   repository       = "https://vllm-project.github.io/production-stack"
   chart            = "vllm-stack"
   version          = "0.1.7"
-  namespace        = kubernetes_namespace.vllm_stack[0].metadata[0].name
+  namespace        = "reducto"
   create_namespace = false
 
   values = [file("values/vllm-stack.yaml")]
@@ -40,5 +32,6 @@ resource "helm_release" "vllm_stack" {
   depends_on = [
     module.eks,
     kubernetes_secret.hf_token,
+    helm_release.nvidia_device_plugin
   ]
 }
