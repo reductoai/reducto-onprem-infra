@@ -8,14 +8,14 @@ This guide explains how to add the `system_gpu` node group to the EKS cluster us
 
 ---
 
-## Step 1: Update the Terraform `eks` Module
+## Step 1: Verify the correct configurations are in Terraform `eks` Module
 
-Locate the `eks_managed_node_groups` section in your `eks.tf`. Add the `system_gpu` node group configuration:
+Locate the `eks_managed_node_groups` section in your `eks.tf`. Verify the `system_gpu` node group has following configuration and set the desired_size based on your requirement:
 
 ```hcl
 system_gpu = {
   ami_type       = "AL2023_x86_64_NVIDIA"
-  instance_types = ["g4dn.xlarge"]
+  instance_types = ["p5.48xlarge"]
 
   min_size     = 1
   max_size     = 2

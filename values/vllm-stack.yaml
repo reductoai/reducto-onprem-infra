@@ -1,52 +1,52 @@
 # vLLM Helm chart example values
-# servingEngineSpec:
-#   enableEngine: true
-#   runtimeClassName: "" 
-#   startupProbe:
-#     initialDelaySeconds: 60
-#     periodSeconds: 30
-#     failureThreshold: 120
-#     httpGet:
-#       path: /health
-#       port: 8000
-#   containerSecurityContext:
-#     privileged: true
+servingEngineSpec:
+  enableEngine: true
+  runtimeClassName: "" 
+  startupProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 120
+    httpGet:
+      path: /health
+      port: 8000
+  containerSecurityContext:
+    privileged: true
 
-#   modelSpec:
-#   - name: "tinyllama-gpu"
-#     nodeSelectorTerms:
-#       - matchExpressions:
-#           - key: gpu_arch
-#             operator: In
-#             values:
-#               - NVIDIAH100 # Adjust based on your GPU architecture
-#     repository: "vllm/vllm-openai"
-#     tag: "v0.8.5.post1"
-#     modelURL: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-#     replicaCount: 1
-#     requestCPU: 1
-#     requestMemory: "2Gi"
-#     requestGPU: 1
-#     limitCPU: 2
-#     limitMemory: "12Gi"
-#     pvcStorage: "200Gi"
-#     storageClass: "gp2"
-#     vllmConfig:
-#       dtype:  "float16"
-#       extraArgs:
-#         - "--disable-log-requests"
-#         - "--gpu-memory-utilization=0.8" 
-#       hf_token:
-#         secretName: "hf-token-secret"
-#         secretKey: "token"
+  modelSpec:
+  - name: "tinyllama-gpu"
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: gpu_arch
+            operator: In
+            values:
+              - NVIDIAH100 # Adjust based on your GPU architecture
+    repository: "vllm/vllm-openai"
+    tag: "v0.8.5.post1"
+    modelURL: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    replicaCount: 1
+    requestCPU: 1
+    requestMemory: "2Gi"
+    requestGPU: 1
+    limitCPU: 2
+    limitMemory: "12Gi"
+    pvcStorage: "200Gi"
+    storageClass: "gp2"
+    vllmConfig:
+      dtype:  "float16"
+      extraArgs:
+        - "--disable-log-requests"
+        - "--gpu-memory-utilization=0.8" 
+      hf_token:
+        secretName: "hf-token-secret"
+        secretKey: "token"
 
-# routerSpec:
-#   enableRouter: true
-#   routingLogic: "roundrobin"
-#   resources:
-#     requests:
-#       cpu: "1"
-#       memory: "1Gi"
-#     limits:
-#       cpu: "2"
-#       memory: "2Gi" 
+routerSpec:
+  enableRouter: true
+  routingLogic: "roundrobin"
+  resources:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi" 

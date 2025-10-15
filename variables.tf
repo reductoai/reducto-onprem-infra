@@ -99,12 +99,6 @@ variable "datadog_api_key" {
 
 # Configuration for vLLM
 
-variable "enable_gpu_node_group" {
-  type        = bool
-  default     = false
-  description = "Whether to create the GPU node group in the EKS cluster"
-}
-
 variable "enable_nvidia_device_plugin" {
   type        = bool
   default     = false
