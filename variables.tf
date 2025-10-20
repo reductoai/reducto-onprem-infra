@@ -97,3 +97,25 @@ variable "datadog_api_key" {
   default     = ""
 }
 
+# Configuration for vLLM
+
+variable "enable_nvidia_device_plugin" {
+  type        = bool
+  default     = false
+  description = "Whether to install the NVIDIA device plugin for GPU support"
+}
+
+variable "enable_vllm_stack" {
+  type        = bool
+  default     = false
+  description = "Whether to deploy the vLLM stack on the cluster"
+}
+
+variable "vllm_stack_hf_token" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Hugging Face API token used by the vLLM stack for model access"
+}
+
+

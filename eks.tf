@@ -166,6 +166,41 @@ module "eks" {
       }
     }
 
+    system_gpu = {
+      ami_type       = "AL2023_x86_64_NVIDIA"
+      instance_types = ["p5.48xlarge"]
+
+      min_size     = 1
+      max_size     = 2
+      desired_size = 0
+
+      labels = {
+        worker-type              = "system-gpu"
+        gpu_arch                 = "NVIDIAH100"
+        "nvidia.com/gpu.present" = "true"
+      }
+
+      block_device_mappings = {
+        root = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = 200
+            volume_type           = "gp3"
+            encrypted             = true
+            delete_on_termination = true
+          }
+        }
+      }
+
+      taints = {
+        gpu = {
+          key    = "nvidia.com/gpu"
+          value  = "Exists"
+          effect = "NO_SCHEDULE"
+        }
+      }
+    }
+
     // capacity for boostrapping workloads.
     // For example: cert-manager and nginx Jobs
     // before Karpenter could even provision capacity

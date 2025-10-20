@@ -1,0 +1,79 @@
+# vLLM Helm chart example values
+servingEngineSpec:
+  enableEngine: true
+  runtimeClassName: "" 
+  startupProbe:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    failureThreshold: 120
+    httpGet:
+      path: /health
+      port: 8000
+  containerSecurityContext:
+    privileged: true
+
+  modelSpec:
+  - name: "citation-7b-gpu"
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: gpu_arch
+            operator: In
+            values:
+              - NVIDIAH100
+    repository: "vllm/vllm-openai"
+    tag: "v0.8.5.post1"
+    modelURL: "reducto/citation_7b_mimo_0812"
+    replicaCount: 1
+    requestCPU: 2
+    requestMemory: "16Gi"
+    requestGPU: 1
+    limitCPU: 4
+    limitMemory: "32Gi"
+    pvcStorage: "200Gi"
+    storageClass: "gp2"
+    vllmConfig:
+      dtype:  "float16"
+      extraArgs:
+        - "--disable-log-requests"
+        - "--gpu-memory-utilization=0.8"
+      hf_token:
+        secretName: "hf-token-secret"
+        secretKey: "token"
+
+  - name: "yaml-extract-30b-gpu"
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: gpu_arch
+            operator: In
+            values:
+              - NVIDIAH100
+    repository: "vllm/vllm-openai"
+    tag: "v0.8.5.post1"
+    modelURL: "reducto/yaml_extract_30b_a3b_1003_v2"
+    replicaCount: 1
+    requestCPU: 4
+    requestMemory: "32Gi"
+    requestGPU: 1
+    limitCPU: 8
+    limitMemory: "64Gi"
+    pvcStorage: "400Gi"
+    storageClass: "gp2"
+    vllmConfig:
+      dtype:  "float16"
+      extraArgs:
+        - "--disable-log-requests"
+        - "--gpu-memory-utilization=0.8"
+      hf_token:
+        secretName: "hf-token-secret"
+        secretKey: "token"
+
+routerSpec:
+  enableRouter: true
+  routingLogic: "roundrobin"
+  resources:
+    requests:
+      cpu: "1"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "2Gi" 
