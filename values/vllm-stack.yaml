@@ -13,7 +13,7 @@ servingEngineSpec:
     privileged: true
 
   modelSpec:
-  - name: "tinyllama-gpu"
+  - name: "citation-7b-gpu"
     nodeSelectorTerms:
       - matchExpressions:
           - key: gpu_arch
@@ -22,20 +22,51 @@ servingEngineSpec:
               - NVIDIAH100 # Adjust based on your GPU architecture
     repository: "vllm/vllm-openai"
     tag: "v0.8.5.post1"
-    modelURL: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    modelURL: "reducto/citation_7b_mimo_0812"
     replicaCount: 1
-    requestCPU: 1
-    requestMemory: "2Gi"
+    requestCPU: 2
+    requestMemory: "16Gi"
     requestGPU: 1
-    limitCPU: 2
-    limitMemory: "12Gi"
+    limitCPU: 4
+    limitMemory: "32Gi"
     pvcStorage: "200Gi"
     storageClass: "gp2"
     vllmConfig:
-      dtype:  "float16"
+      dtype: "float16"
       extraArgs:
         - "--disable-log-requests"
-        - "--gpu-memory-utilization=0.8" 
+        - "--gpu-memory-utilization=0.8"
+        - "--enforce-eager"
+        - "--port=8091"
+      hf_token:
+        secretName: "hf-token-secret"
+        secretKey: "token"
+  
+  - name: "yaml-extract-30b-gpu"
+    nodeSelectorTerms:
+      - matchExpressions:
+          - key: gpu_arch
+            operator: In
+            values:
+              - NVIDIAH200 # H200 GPU for larger model
+    repository: "lmsysorg/sglang"
+    tag: "v0.5.3rc1-cu126"
+    modelURL: "reducto/yaml_extract_30b_a3b_1003_v2"
+    replicaCount: 1
+    requestCPU: 4
+    requestMemory: "32Gi"
+    requestGPU: 1
+    limitCPU: 8
+    limitMemory: "64Gi"
+    pvcStorage: "400Gi"
+    storageClass: "gp2"
+    vllmConfig:
+      dtype: "float16"
+      extraArgs:
+        - "--log-level=info"
+        - "--port=8092"
+        - "--context-length=256000"
+        - "--attention-backend=fa3"
       hf_token:
         secretName: "hf-token-secret"
         secretKey: "token"
@@ -49,4 +80,4 @@ routerSpec:
       memory: "1Gi"
     limits:
       cpu: "2"
-      memory: "2Gi" 
+      memory: "2Gi"  
