@@ -1,0 +1,53 @@
+---
+title: Deploying the OpenTelemetry Collector
+---
+
+# OpenTelemetry Collector — Deploy
+
+This guide shows how to deploy the OTEL Collector using the provided Terraform and Helm files.
+
+
+## Files in this folder
+
+```
+opentelemetry-collector.tf        # Terraform resources (Helm release + Secrets)
+variables.tf                      # Toggle + tokens (as TF variables)
+values/opentelemetry-collector.yaml  # Helm values for the Collector
+```
+
+> The Terraform code creates K8s Secrets only when corresponding variables are non-empty and `enable_otel_collector` is `true`.
+
+## Configure variables
+
+Set these securely via a `.tfvars` file or environment variables:
+
+```hcl title="prod.auto.tfvars (example)"
+enable_otel_collector = true
+otel_auth_token       = "REPLACE_WITH_INGEST_TOKEN"
+otel_datadog_api_key  = "REPLACE_WITH_DD_API_KEY"
+```
+
+## Deploy
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+## Verify
+
+If DNS and TLS are configured, the collector should be reachable at:
+
+- `https://otel.platform.reducto.ai` (OTLP/HTTP)
+
+## Quick send tests
+
+**OTLP/HTTP traces (with bearer token):**
+```bash
+curl -X POST "https://otel.platform.reducto.ai/v1/traces"   -H "Authorization: Bearer REPLACE_WITH_INGEST_TOKEN"   -H "Content-Type: application/json"   --data '{}'
+```
+
+## Datadog export
+
+The Helm values configure the Datadog exporter to `us3.datadoghq.com` using `${OTEL_DATADOG_API_KEY}` injected via Terraform-managed Secret. Validate data arrival in Datadog (traces/metrics/logs) after sending some test traffic.
