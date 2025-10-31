@@ -118,4 +118,24 @@ variable "vllm_stack_hf_token" {
   description = "Hugging Face API token used by the vLLM stack for model access"
 }
 
+# Configuration for OpenTelemetry Collector
 
+variable "enable_otel_collector" {
+  type        = bool
+  default     = false
+  description = "Whether to deploy the OpenTelemetry Collector on the cluster"
+}
+
+variable "otel_auth_token" {
+  description = "Auth token used by the OpenTelemetry collector"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "otel_datadog_api_key" {
+  description = "Datadog API key used by the OpenTelemetry collector exporter"
+  type        = string
+  sensitive   = true
+  default     = "admin"
+}
