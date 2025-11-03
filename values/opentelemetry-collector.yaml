@@ -1,0 +1,67 @@
+mode: deployment
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+
+image:
+  repository: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib"
+  tag: 0.138.0
+
+
+config:
+  extensions:
+    health_check: {}
+
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+  processors:
+    batch:
+      send_batch_size: 10
+      send_batch_max_size: 100
+      timeout: 10s
+
+  exporters:
+    datadog:
+      api:
+        key: ${OTEL_DATADOG_API_KEY}
+  service:
+    extensions:
+      - health_check
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [datadog]
+      metrics:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [datadog]
+      logs:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [datadog]

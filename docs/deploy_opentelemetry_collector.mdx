@@ -1,0 +1,43 @@
+---
+title: Deploying the OpenTelemetry Collector
+---
+
+# OpenTelemetry Collector
+
+Deploy the collector by enabling `enable_otel_collector` in Terraform. The chart installs into the `monitoring` namespace and stays cluster-internal unless you provide public ingress inputs.
+
+## Configure
+
+- `otel_datadog_api_key` (required): forwards traces, metrics, and logs to the Datadog exporter.
+- `datadog_site` (optional, default `us5.datadoghq.com`): overrides the Datadog site.
+- `otel_auth_token` (optional): bearer token required by the collector when ingress is exposed.
+- `otel_host` (optional): FQDN for a public ingress. When set, `otel_auth_token` must also be provided.
+
+Example:
+
+```hcl title="prod.auto.tfvars"
+enable_otel_collector = true
+otel_datadog_api_key  = "DATADOG_API_KEY"
+datadog_site          = "us3.datadoghq.com"
+otel_host       = "otel.example.com"
+otel_auth_token = "INGEST_TOKEN"
+```
+
+## Deploy
+
+```bash
+terraform init
+terraform apply
+```
+
+## Access
+
+- Without `otel_host`, send traffic to the Kubernetes service `opentelemetry-collector.monitoring` on ports `4318` (HTTP) or `4317` (gRPC).
+- When `otel_host` and `otel_auth_token` are set, the chart creates an ingress. Use the host with OTLP/HTTP:
+
+```bash
+curl -X POST https://otel.example.com/v1/traces \
+  -H "Authorization: Bearer INGEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data '{}'
+```

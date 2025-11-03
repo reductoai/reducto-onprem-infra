@@ -88,7 +88,7 @@ variable "slack_webhook_url" {
 
 variable "datadog_site" {
   description = "Datadog site"
-  default     = "us5.datadoghq.com"
+  default     = "us3.datadoghq.com"
 }
 
 variable "datadog_api_key" {
@@ -118,4 +118,30 @@ variable "vllm_stack_hf_token" {
   description = "Hugging Face API token used by the vLLM stack for model access"
 }
 
+# Configuration for OpenTelemetry Collector
 
+variable "enable_otel_collector" {
+  type        = bool
+  default     = false
+  description = "Whether to deploy the OpenTelemetry Collector on the cluster"
+}
+
+variable "otel_host" {
+  type        = string
+  default     = ""
+  description = "FQDN for exposing the OpenTelemetry Collector"
+}
+
+variable "otel_auth_token" {
+  description = "Auth token used by the OpenTelemetry collector"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "otel_datadog_api_key" {
+  description = "Datadog API key used by the OpenTelemetry collector exporter"
+  type        = string
+  sensitive   = true
+  default     = "admin"
+}
