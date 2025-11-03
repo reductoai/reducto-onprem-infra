@@ -88,7 +88,7 @@ variable "slack_webhook_url" {
 
 variable "datadog_site" {
   description = "Datadog site"
-  default     = "us5.datadoghq.com"
+  default     = "us3.datadoghq.com"
 }
 
 variable "datadog_api_key" {
@@ -124,6 +124,12 @@ variable "enable_otel_collector" {
   type        = bool
   default     = false
   description = "Whether to deploy the OpenTelemetry Collector on the cluster"
+}
+
+variable "otel_host" {
+  type        = string
+  default     = ""
+  description = "FQDN for exposing the OpenTelemetry Collector"
 }
 
 variable "otel_auth_token" {

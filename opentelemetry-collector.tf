@@ -75,7 +75,104 @@ resource "helm_release" "opentelemetry_collector" {
   values = concat(
     [
       file("values/opentelemetry-collector.yaml"),
+      yamlencode({
+        config = {
+          exporters = {
+            datadog = {
+              api = {
+                site = var.datadog_site
+              }
+            }
+          }
+        }
+      })
     ],
+    var.otel_auth_token != "" ? [
+      yamlencode({
+        config = {
+          extensions = {
+            health_check             = {}
+            "bearertokenauth/ingest" = {
+              token = "${OTEL_AUTH_TOKEN}"
+            }
+          }
+          receivers = {
+            otlp = {
+              protocols = {
+                http = {
+                  endpoint = "0.0.0.0:4318"
+                  auth = {
+                    authenticator = "bearertokenauth/ingest"
+                  }
+                }
+                grpc = {
+                  endpoint = "0.0.0.0:4317"
+                  auth = {
+                    authenticator = "bearertokenauth/ingest"
+                  }
+                }
+              }
+            }
+          }
+          service = {
+            extensions = [
+              "health_check",
+              "bearertokenauth/ingest"
+            ]
+            pipelines = {
+              traces = {
+                receivers  = ["otlp"]
+                processors = ["batch"]
+                exporters  = ["datadog"]
+              }
+              metrics = {
+                receivers  = ["otlp"]
+                processors = ["batch"]
+                exporters  = ["datadog"]
+              }
+              logs = {
+                receivers  = ["otlp"]
+                processors = ["batch"]
+                exporters  = ["datadog"]
+              }
+            }
+          }
+        }
+      })
+    ] : [],
+    var.otel_host != "" && var.otel_auth_token != "" ? [
+      yamlencode({
+        ingress = {
+          enabled = true
+          ingressClassName = "nginx"
+          annotations = {
+            "kubernetes.io/ingress.class"                   = "nginx"
+            "nginx.ingress.kubernetes.io/proxy-connect-timeout" = "5"
+            "nginx.ingress.kubernetes.io/proxy-send-timeout"    = "60"
+            "nginx.ingress.kubernetes.io/proxy-read-timeout"    = "60"
+            "nginx.ingress.kubernetes.io/limit-rps"             = "1000"
+          }
+          hosts = [
+            {
+              host = var.otel_host
+              paths = [
+                {
+                  path     = "/"
+                  pathType = "Prefix"
+                  port     = 4318
+                }
+              ]
+            }
+          ]
+          tls = [
+            {
+              secretName = "otel-cert"
+              hosts      = [var.otel_host]
+            }
+          ]
+        }
+      })
+    ] : [],
     length(local.otel_collector_extra_env) > 0 ? [
       yamlencode({
         extraEnvs = local.otel_collector_extra_env
