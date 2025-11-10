@@ -3,7 +3,7 @@ module "eks" {
   version = "20.26.0"
 
   cluster_name    = var.cluster_name
-  cluster_version = "1.31"
+  cluster_version = "1.32"
 
   cluster_endpoint_public_access       = var.cluster_endpoint_public_access
   cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
@@ -21,7 +21,7 @@ module "eks" {
 
   cluster_addons = {
     coredns = {
-      addon_version     = "v1.11.3-eksbuild.1"
+      addon_version     = "v1.11.4-eksbuild.24"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         autoScaling = {
@@ -59,7 +59,7 @@ module "eks" {
     }
 
     eks-pod-identity-agent = {
-      addon_version     = "v1.3.2-eksbuild.2"
+      addon_version     = "v1.3.4-eksbuild.1"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -75,7 +75,7 @@ module "eks" {
     }
 
     kube-proxy = {
-      addon_version     = "v1.30.3-eksbuild.9"
+      addon_version     = "v1.32.6-eksbuild.13"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -91,7 +91,7 @@ module "eks" {
     }
 
     vpc-cni = {
-      addon_version     = "v1.18.5-eksbuild.1"
+      addon_version     = "v1.20.4-eksbuild.1"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -108,7 +108,7 @@ module "eks" {
 
     aws-ebs-csi-driver = {
       service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
-      addon_version            = "v1.36.0-eksbuild.1"
+      addon_version            = "v1.37.0-eksbuild.1"
       resolve_conflicts        = "OVERWRITE"
 
       configuration_values = jsonencode({
