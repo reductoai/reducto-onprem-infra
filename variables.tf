@@ -70,6 +70,12 @@ variable "reducto_helm_chart" {
   default     = "oci://registry.reducto.ai/reducto-api/reducto"
 }
 
+variable "create_reducto_helm_release" {
+  description = "Create Reducto Helm Release, useful if you manage k8s resources outside of terraform"
+  type        = bool
+  default     = true
+}
+
 variable "reducto_host" {
   description = "Full host DNS for Reducto (Example: reducto.mydomain.com)"
 }
