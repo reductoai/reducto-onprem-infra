@@ -1,5 +1,10 @@
 controller:
   replicaCount: 2
+
+  # Security: Disable TLS 1.0 and TLS 1.1, only allow TLS 1.2 and TLS 1.3
+  config:
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+
   resources:
     requests:
       cpu: 100m
