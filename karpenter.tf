@@ -55,18 +55,13 @@ resource "kubectl_manifest" "karpenter_node_class" {
       name: default
     spec:
       amiSelectorTerms:
-      - alias: bottlerocket@v1.29.0
+      - alias: al2023@v20251217
       userData: |
         [settings.kubernetes]
         image-gc-low-threshold-percent = "50"
         image-gc-high-threshold-percent = "70"
       blockDeviceMappings:
         - deviceName: /dev/xvda
-          ebs:
-            volumeSize: 4Gi
-            volumeType: gp3
-            throughput: 250
-        - deviceName: /dev/xvdb
           ebs:
             volumeSize: 200Gi
             volumeType: gp3
@@ -127,3 +122,4 @@ resource "kubectl_manifest" "karpenter_node_pool" {
     kubectl_manifest.karpenter_node_class
   ]
 }
+

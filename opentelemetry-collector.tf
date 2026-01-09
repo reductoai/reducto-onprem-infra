@@ -91,9 +91,9 @@ resource "helm_release" "opentelemetry_collector" {
       yamlencode({
         config = {
           extensions = {
-            health_check             = {}
+            health_check = {}
             "bearertokenauth/ingest" = {
-              token = "${OTEL_AUTH_TOKEN}"
+              token = "${var.otel_auth_token}"
             }
           }
           receivers = {
@@ -143,10 +143,10 @@ resource "helm_release" "opentelemetry_collector" {
     var.otel_host != "" && var.otel_auth_token != "" ? [
       yamlencode({
         ingress = {
-          enabled = true
+          enabled          = true
           ingressClassName = "nginx"
           annotations = {
-            "kubernetes.io/ingress.class"                   = "nginx"
+            "kubernetes.io/ingress.class"                       = "nginx"
             "nginx.ingress.kubernetes.io/proxy-connect-timeout" = "5"
             "nginx.ingress.kubernetes.io/proxy-send-timeout"    = "60"
             "nginx.ingress.kubernetes.io/proxy-read-timeout"    = "60"
