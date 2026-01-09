@@ -1,17 +1,17 @@
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "20.26.0"
+  version = "21.12.0"
 
-  cluster_name    = var.cluster_name
-  cluster_version = "1.32"
+  name               = var.cluster_name
+  kubernetes_version = "1.32"
 
-  cluster_endpoint_public_access       = var.cluster_endpoint_public_access
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
-  cluster_endpoint_private_access      = true
+  endpoint_public_access       = var.cluster_endpoint_public_access
+  endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
+  endpoint_private_access      = true
 
   enable_cluster_creator_admin_permissions = true
 
-  cluster_enabled_log_types = [
+  enabled_log_types = [
     "api",
     "audit",
     "authenticator",
@@ -19,7 +19,7 @@ module "eks" {
     "scheduler",
   ]
 
-  cluster_addons = {
+  addons = {
     coredns = {
       addon_version     = "v1.11.4-eksbuild.24"
       resolve_conflicts = "OVERWRITE"
@@ -91,8 +91,9 @@ module "eks" {
     }
 
     vpc-cni = {
-      addon_version     = "v1.20.4-eksbuild.1"
-      resolve_conflicts = "OVERWRITE"
+      addon_version            = "v1.20.4-eksbuild.1"
+      resolve_conflicts        = "OVERWRITE"
+      service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
         resources = {
           limits = {
@@ -107,7 +108,7 @@ module "eks" {
     }
 
     aws-ebs-csi-driver = {
-      service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
+      service_account_role_arn = module.ebs_csi_irsa_role.arn
       addon_version            = "v1.37.0-eksbuild.1"
       resolve_conflicts        = "OVERWRITE"
 
@@ -215,11 +216,31 @@ module "eks" {
   }
 }
 
-module "ebs_csi_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "5.44.1"
+module "vpc_cni_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "v6.2.1"
 
-  role_name             = "${var.cluster_name}-ebs-csi-controller"
+  name            = "${var.cluster_name}-vpc-cni"
+  use_name_prefix = false
+
+  attach_vpc_cni_policy = true
+  vpc_cni_enable_ipv4   = true
+
+  oidc_providers = {
+    ex = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-node"]
+    }
+  }
+}
+
+module "ebs_csi_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "v6.3.0"
+
+  name            = "${var.cluster_name}-ebs-csi-controller"
+  use_name_prefix = false
+
   attach_ebs_csi_policy = true
 
   oidc_providers = {

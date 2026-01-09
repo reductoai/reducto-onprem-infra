@@ -8,7 +8,7 @@ locals {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.14"
+  version = "~> 6.6.0"
 
   name = "${var.cluster_name}-vpc"
   cidr = var.vpc_cidr
@@ -46,3 +46,4 @@ resource "aws_db_subnet_group" "default" {
   name       = var.cluster_name
   subnet_ids = module.vpc.private_subnets
 }
+

@@ -12,18 +12,18 @@ alertmanager:
     global:
       resolve_timeout: 1m
     route:
-      receiver: 'reducto-alerts'
-      group_by: ['alertname', 'cluster', 'namespace']
+      receiver: "reducto-alerts"
+      group_by: ["alertname", "cluster", "namespace"]
       group_wait: 30s
       group_interval: 5m
       repeat_interval: 4h
       routes:
-      - receiver: 'blackhole'
-        match:
-          alertname: Watchdog
+        - receiver: "blackhole"
+          match:
+            alertname: Watchdog
 
     templates:
-    - '/etc/alertmanager/config/*.tmpl'
+      - "/etc/alertmanager/config/*.tmpl"
 
   templateFiles:
     slack.tmpl: |-
@@ -98,19 +98,21 @@ alertmanager:
         memory: 128Mi
 
     tolerations:
-    - key: "CriticalAddonsOnly"
-      operator: "Exists"
-      effect: "NoSchedule"
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+    priorityClassName: "system-cluster-critical"
 
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
-          - matchExpressions:
-            - key: worker-type
-              operator: In
-              values:
-              - system
+            - matchExpressions:
+                - key: worker-type
+                  operator: In
+                  values:
+                    - system
 
 prometheusOperator:
   resources:
@@ -120,24 +122,26 @@ prometheusOperator:
       cpu: 50m
       memory: 100Mi
   tolerations:
-  - key: "CriticalAddonsOnly"
-    operator: "Exists"
-    effect: "NoSchedule"
+    - key: "CriticalAddonsOnly"
+      operator: "Exists"
+      effect: "NoSchedule"
+
+  priorityClassName: "system-cluster-critical"
 
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-        - matchExpressions:
-          - key: worker-type
-            operator: In
-            values:
-            - system
-        - matchExpressions:
-          - key: karpenter.sh/capacity-type
-            operator: In
-            values:
-            - on-demand
+          - matchExpressions:
+              - key: worker-type
+                operator: In
+                values:
+                  - system
+          - matchExpressions:
+              - key: karpenter.sh/capacity-type
+                operator: In
+                values:
+                  - on-demand
 
 prometheus:
   ingress:
@@ -148,7 +152,6 @@ prometheus:
     ruleSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
-    ruleSelectorNilUsesHelmValues: false
     probeSelectorNilUsesHelmValues: false
     scrapeConfigSelectorNilUsesHelmValues: false
     retention: 15d
@@ -166,19 +169,21 @@ prometheus:
         memory: 4Gi
 
     tolerations:
-    - key: "CriticalAddonsOnly"
-      operator: "Exists"
-      effect: "NoSchedule"
+      - key: "CriticalAddonsOnly"
+        operator: "Exists"
+        effect: "NoSchedule"
+
+    priorityClassName: "system-cluster-critical"
 
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
-          - matchExpressions:
-            - key: worker-type
-              operator: In
-              values:
-              - system
+            - matchExpressions:
+                - key: worker-type
+                  operator: In
+                  values:
+                    - system
 
     containers:
       - name: prometheus

@@ -1,8 +1,10 @@
 module "load_balancer_controller_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "5.52.2"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "v6.3.0"
 
-  role_name                              = "${var.cluster_name}-lb-controller"
+  name            = "${var.cluster_name}-lb-controller"
+  use_name_prefix = false
+
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
@@ -27,10 +29,11 @@ resource "helm_release" "aws_load_balancer_controller" {
       create: true
       name: aws-load-balancer-controller
       annotations:
-        eks.amazonaws.com/role-arn: ${module.load_balancer_controller_irsa_role.iam_role_arn}
+        eks.amazonaws.com/role-arn: ${module.load_balancer_controller_irsa_role.arn}
     tolerations:
     - key: CriticalAddonsOnly
       operator: Exists
+    vpcId: ${module.vpc.vpc_id}
     EOT
   ]
 
@@ -39,3 +42,4 @@ resource "helm_release" "aws_load_balancer_controller" {
     module.load_balancer_controller_irsa_role,
   ]
 }
+

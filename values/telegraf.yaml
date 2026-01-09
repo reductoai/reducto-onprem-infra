@@ -8,31 +8,33 @@ resources:
     memory: 128Mi
 
 tolerations:
-- key: "CriticalAddonsOnly"
-  operator: "Exists"
-  effect: "NoSchedule"
+  - key: "CriticalAddonsOnly"
+    operator: "Exists"
+    effect: "NoSchedule"
 
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:
-      - matchExpressions:
-        - key: worker-type
-          operator: In
-          values:
-          - system
+        - matchExpressions:
+            - key: worker-type
+              operator: In
+              values:
+                - system
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - telegraf
-      topologyKey: "topology.kubernetes.io/zone"
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - telegraf
+        topologyKey: "topology.kubernetes.io/zone"
 
 envFromSecret: "telegraf"
 
+pdb:
+  create: false
 
 config:
   agent:
@@ -65,5 +67,3 @@ config:
         path: "/metrics"
         expiration_interval: "60s"
         export_timestamp: false
-
-

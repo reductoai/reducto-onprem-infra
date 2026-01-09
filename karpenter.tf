@@ -1,12 +1,8 @@
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "20.33.1"
+  version = "21.12.0"
 
   cluster_name = var.cluster_name
-
-  enable_v1_permissions           = true
-  enable_pod_identity             = true
-  create_pod_identity_association = true
 
   # Used to attach additional IAM policies to the Karpenter node IAM role
   node_iam_role_additional_policies = {
@@ -16,12 +12,21 @@ module "karpenter" {
   depends_on = [module.eks]
 }
 
+resource "helm_release" "karpenter-crd" {
+  namespace  = "kube-system"
+  name       = "karpenter-crd"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter-crd"
+  version    = "1.8.3"
+  wait       = false
+}
+
 resource "helm_release" "karpenter" {
   namespace  = "kube-system"
   name       = "karpenter"
   repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter"
-  version    = "1.2.1"
+  version    = "1.8.3"
   wait       = false
 
   values = [
@@ -33,16 +38,24 @@ resource "helm_release" "karpenter" {
           memory: 2Gi
         limits:
           memory: 2Gi
-    serviceAccount:
-      name: ${module.karpenter.service_account}
+    nodeSelector:
+      worker-type: system
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
     settings:
       clusterName: ${var.cluster_name}
       clusterEndpoint: ${module.eks.cluster_endpoint}
       interruptionQueue: ${module.karpenter.queue_name}
+      vmMemoryOverheadPercent: 0.001
+      featureGates:
+        spotToSpotConsolidation: true
+    serviceMonitor:
+      enabled: true
     EOT
   ]
   depends_on = [
-    helm_release.aws_load_balancer_controller,
+    helm_release.karpenter-crd,
     module.karpenter
   ]
 }
@@ -56,10 +69,6 @@ resource "kubectl_manifest" "karpenter_node_class" {
     spec:
       amiSelectorTerms:
       - alias: al2023@v20251217
-      userData: |
-        [settings.kubernetes]
-        image-gc-low-threshold-percent = "50"
-        image-gc-high-threshold-percent = "70"
       blockDeviceMappings:
         - deviceName: /dev/xvda
           ebs:
@@ -67,6 +76,7 @@ resource "kubectl_manifest" "karpenter_node_class" {
             volumeType: gp3
             throughput: 250
       role: ${module.karpenter.node_iam_role_name}
+      detailedMonitoring: true
       subnetSelectorTerms:
         - tags:
             karpenter.sh/discovery: ${var.cluster_name}
@@ -91,20 +101,13 @@ resource "kubectl_manifest" "karpenter_node_pool" {
     spec:
       template:
         spec:
+          expireAfter: Never
+          terminationGracePeriod: 1h
           nodeClassRef:
             name: default
             group: karpenter.k8s.aws
             kind: EC2NodeClass
           requirements:
-            - key: "karpenter.k8s.aws/instance-category"
-              operator: In
-              values: ["c"]
-            - key: "karpenter.k8s.aws/instance-hypervisor"
-              operator: In
-              values: ["nitro"]
-            - key: "karpenter.k8s.aws/instance-generation"
-              operator: Gt
-              values: ["4"]
             - key: "karpenter.k8s.aws/instance-cpu"
               operator: In
               values: ["8", "16"]
