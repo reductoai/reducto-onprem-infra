@@ -3,7 +3,7 @@ module "eks" {
   version = "21.12.0"
 
   name               = var.cluster_name
-  kubernetes_version = "1.33"
+  kubernetes_version = "1.34"
 
   endpoint_public_access       = var.cluster_endpoint_public_access
   endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
@@ -75,7 +75,7 @@ module "eks" {
     }
 
     kube-proxy = {
-      addon_version     = "v1.33.7-eksbuild.2"
+      addon_version     = "v1.34.1-eksbuild.2"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -151,7 +151,7 @@ module "eks" {
       ami_type                       = "AL2023_x86_64_STANDARD"
       instance_types                 = ["m5.large"]
       use_latest_ami_release_version = false
-      ami_release_version            = "1.33.5-20260114"
+      ami_release_version            = "1.34.2-20260114"
       enable_monitoring              = true
 
       min_size     = 2
@@ -176,7 +176,7 @@ module "eks" {
       ami_type                       = "AL2023_x86_64_NVIDIA"
       instance_types                 = ["p5.48xlarge"]
       use_latest_ami_release_version = false
-      ami_release_version            = "1.33.5-20260114"
+      ami_release_version            = "1.34.2-20260114"
       enable_monitoring              = true
 
       min_size     = 1
