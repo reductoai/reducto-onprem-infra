@@ -3,7 +3,7 @@ module "eks" {
   version = "21.12.0"
 
   name               = var.cluster_name
-  kubernetes_version = "1.32"
+  kubernetes_version = "1.33"
 
   endpoint_public_access       = var.cluster_endpoint_public_access
   endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
@@ -21,7 +21,7 @@ module "eks" {
 
   addons = {
     coredns = {
-      addon_version     = "v1.11.4-eksbuild.24"
+      addon_version     = "v1.13.1-eksbuild.1"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         autoScaling = {
@@ -59,7 +59,7 @@ module "eks" {
     }
 
     eks-pod-identity-agent = {
-      addon_version     = "v1.3.4-eksbuild.1"
+      addon_version     = "v1.3.10-eksbuild.2"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -75,7 +75,7 @@ module "eks" {
     }
 
     kube-proxy = {
-      addon_version     = "v1.32.9-eksbuild.2"
+      addon_version     = "v1.33.7-eksbuild.2"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -91,7 +91,7 @@ module "eks" {
     }
 
     vpc-cni = {
-      addon_version            = "v1.20.4-eksbuild.1"
+      addon_version            = "v1.21.1-eksbuild.1"
       resolve_conflicts        = "OVERWRITE"
       service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
@@ -109,7 +109,7 @@ module "eks" {
 
     aws-ebs-csi-driver = {
       service_account_role_arn = module.ebs_csi_irsa_role.arn
-      addon_version            = "v1.37.0-eksbuild.1"
+      addon_version            = "v1.54.0-eksbuild.1"
       resolve_conflicts        = "OVERWRITE"
 
       configuration_values = jsonencode({
@@ -151,7 +151,7 @@ module "eks" {
       ami_type                       = "AL2023_x86_64_STANDARD"
       instance_types                 = ["m5.large"]
       use_latest_ami_release_version = false
-      ami_release_version            = "1.32.9-20251217"
+      ami_release_version            = "1.33.5-20260114"
       enable_monitoring              = true
 
       min_size     = 2
@@ -171,11 +171,12 @@ module "eks" {
       }
     }
 
+    /*
     system_gpu = {
       ami_type                       = "AL2023_x86_64_NVIDIA"
       instance_types                 = ["p5.48xlarge"]
       use_latest_ami_release_version = false
-      ami_release_version            = "1.32.9-20251217"
+      ami_release_version            = "1.33.5-20260114"
       enable_monitoring              = true
 
       min_size     = 1
@@ -208,6 +209,7 @@ module "eks" {
         }
       }
     }
+    */
   }
 
   node_security_group_tags = {

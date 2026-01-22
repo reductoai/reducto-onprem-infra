@@ -68,7 +68,7 @@ resource "kubectl_manifest" "karpenter_node_class" {
       name: default
     spec:
       amiSelectorTerms:
-      - alias: al2023@v20251217
+      - alias: al2023@v20260114
       blockDeviceMappings:
         - deviceName: /dev/xvda
           ebs:
