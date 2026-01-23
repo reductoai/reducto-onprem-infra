@@ -93,7 +93,7 @@ resource "helm_release" "opentelemetry_collector" {
           extensions = {
             health_check             = {}
             "bearertokenauth/ingest" = {
-              token = "${OTEL_AUTH_TOKEN}"
+              token = "${var.otel_auth_token}"
             }
           }
           receivers = {

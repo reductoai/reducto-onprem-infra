@@ -75,7 +75,7 @@ module "eks" {
     }
 
     kube-proxy = {
-      addon_version     = "v1.32.6-eksbuild.13"
+      addon_version     = "v1.32.9-eksbuild.2"
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {

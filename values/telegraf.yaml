@@ -33,6 +33,8 @@ affinity:
 
 envFromSecret: "telegraf"
 
+pdb:
+  create: false
 
 config:
   agent:
@@ -65,5 +67,3 @@ config:
         path: "/metrics"
         expiration_interval: "60s"
         export_timestamp: false
-
-
