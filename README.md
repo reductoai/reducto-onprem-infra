@@ -16,6 +16,10 @@ The project creates [Helm Release](./reducto-helm-release.tf) for Reducto on EKS
 This project demonstrates fully working cluster that's needed to run Reducto.
 Cloudflare is not a requirement, however its used here to setup TLS along with cert-manager.
 
+## Upgrades
+
+For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md).
+
 ## Helm Chart
 
 To obtain or inspect Helm Chart and available configurations in `values.yaml`

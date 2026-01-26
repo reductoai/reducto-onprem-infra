@@ -144,10 +144,14 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
+  # aws ssm get-parameter --name /aws/service/eks/optimized-ami/${KUBERNETES_VERSION}/amazon-linux-2023/x86_64/standard/recommended/release_version --region us-west-2 --query "Parameter.Value" --output text
   eks_managed_node_groups = {
     system = {
-      ami_type       = "AL2023_x86_64_STANDARD"
-      instance_types = ["m5.large"]
+      ami_type                       = "AL2023_x86_64_STANDARD"
+      instance_types                 = ["m5.large"]
+      use_latest_ami_release_version = false
+      ami_release_version            = "1.32.9-20260120"
+      enable_monitoring              = true
 
       min_size     = 2
       max_size     = 10
@@ -167,8 +171,11 @@ module "eks" {
     }
 
     system_gpu = {
-      ami_type       = "AL2023_x86_64_NVIDIA"
-      instance_types = ["p5.48xlarge"]
+      ami_type                       = "AL2023_x86_64_NVIDIA"
+      instance_types                 = ["p5.48xlarge"]
+      use_latest_ami_release_version = false
+      ami_release_version            = "1.32.9-20260120"
+      enable_monitoring              = true
 
       min_size     = 1
       max_size     = 2
@@ -199,18 +206,6 @@ module "eks" {
           effect = "NO_SCHEDULE"
         }
       }
-    }
-
-    // capacity for boostrapping workloads.
-    // For example: cert-manager and nginx Jobs
-    // before Karpenter could even provision capacity
-    startup = {
-      ami_type       = "AL2023_x86_64_STANDARD"
-      instance_types = ["m5.large"]
-
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
     }
   }
 
