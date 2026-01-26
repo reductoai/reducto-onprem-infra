@@ -68,7 +68,7 @@ variable "reducto_helm_repo_password" {
 
 variable "reducto_helm_chart_version" {
   description = "Reducto Helm Chart version"
-  default     = "1.9.55"
+  default     = "1.11.32"
 }
 
 variable "reducto_helm_chart" {
