@@ -1,4 +1,4 @@
-resource "kubernetes_secret" "hf_token" {
+resource "kubernetes_secret_v1" "hf_token" {
   count = var.enable_vllm_stack ? 1 : 0
   metadata {
     name      = "hf-token-secret"
@@ -31,7 +31,7 @@ resource "helm_release" "vllm_stack" {
 
   depends_on = [
     module.eks,
-    kubernetes_secret.hf_token,
+    kubernetes_secret_v1.hf_token,
     helm_release.nvidia_device_plugin
   ]
 }
