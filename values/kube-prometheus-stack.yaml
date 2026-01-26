@@ -86,7 +86,6 @@ alertmanager:
     storage:
       volumeClaimTemplate:
         spec:
-          storageClassName: gp2
           resources:
             requests:
               storage: 1Gi
@@ -156,7 +155,6 @@ prometheus:
     storageSpec:
       volumeClaimTemplate:
         spec:
-          storageClassName: gp2
           resources:
             requests:
               storage: 20Gi
