@@ -1,5 +1,52 @@
 # Upgrade
 
+## From 1.4.0 to 1.5.0
+
+This release adds conditional resource deployment, updates Terraform providers, upgrades the Reducto application, and improves Karpenter node lifecycle management.
+
+### Changes
+
+**Conditional Resource Deployment**
+
+- Added `enable_gpu_managed_node_group` variable (default: false) to make GPU managed node group (system_gpu) optional
+- Added `enable_reducto` variable (default: true) to make Reducto Helm release deployment optional
+- Converted eks_managed_node_groups to use merge() with conditional expression for GPU nodes
+
+**Application Updates**
+
+- Updated Reducto Helm chart version from 1.9.55 to 1.11.32
+
+**Terraform Provider Updates**
+
+| Provider | Previous Version | New Version |
+|----------|-----------------|-------------|
+| Helm | 2.17.0 | 3.1.1 |
+| Kubernetes | 2.33.0 | 3.0.1 |
+| Random | 3.6.3 | 3.8.0 |
+| Null | 3.2.3 | 3.2.4 |
+
+**Provider Configuration Changes**
+
+- Fixed Helm and Kubernetes provider block syntax (changed to use `=` for block assignments)
+- Migrated deprecated `kubernetes_secret` to `kubernetes_secret_v1` in vllm-stack.tf
+
+**Karpenter Configuration Updates**
+
+- Set `expireAfter: Never` to prevent automatic node expiration
+- Added `terminationGracePeriod: 1h` for graceful workload migration during node termination
+- Removed instance-family restriction to allow broader instance type selection (previously restricted to c5d, c5n, c6a, c6i, c6in)
+
+### Manual Steps
+
+No manual steps required. The upgrade is handled automatically by Terraform.
+
+### Important Notes
+
+- The GPU managed node group is now disabled by default. Set `enable_gpu_managed_node_group = true` to enable it.
+- Reducto deployment remains enabled by default. Set `enable_reducto = false` to disable it.
+- Provider upgrades may require running `terraform init -upgrade` to download new provider versions
+- Karpenter nodes will no longer automatically expire, improving stability for long-running workloads
+
 ## From 1.3.0 to 1.4.0
 
 This release upgrades the EKS cluster from Kubernetes 1.33 to 1.34 and updates the kube-proxy add-on and EKS managed node AMI versions.

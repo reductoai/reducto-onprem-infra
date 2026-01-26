@@ -101,26 +101,31 @@ resource "kubectl_manifest" "karpenter_node_pool" {
     spec:
       template:
         spec:
+          expireAfter: Never
+          terminationGracePeriod: 1h
           nodeClassRef:
             name: default
             group: karpenter.k8s.aws
             kind: EC2NodeClass
           requirements:
+            - key: "kubernetes.io/arch"
+              operator: In
+              values: ["amd64"]
+            - key: "kubernetes.io/os"
+              operator: In
+              values: ["linux"]
             - key: "karpenter.k8s.aws/instance-category"
               operator: In
               values: ["c"]
             - key: "karpenter.k8s.aws/instance-hypervisor"
               operator: In
               values: ["nitro"]
-            - key: "karpenter.k8s.aws/instance-generation"
-              operator: Gt
-              values: ["4"]
             - key: "karpenter.k8s.aws/instance-cpu"
               operator: In
               values: ["8", "16"]
-            - key: "karpenter.k8s.aws/instance-family"
+            - key: "karpenter.k8s.aws/instance-capability-flex"
               operator: In
-              values: [ "c5d", "c5n", "c6a", "c6i", "c6in" ]
+              values: ["false"]
       disruption:
         budgets:
         - nodes: 100%
