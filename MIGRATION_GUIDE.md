@@ -1,5 +1,42 @@
 # Upgrade
 
+## From 1.2.0 to 1.3.0
+
+This release upgrades the EKS cluster from Kubernetes 1.32 to 1.33 and updates all related EKS add-ons to their latest compatible versions.
+
+### Changes
+
+**Kubernetes Version**
+
+- Upgraded from 1.32 to 1.33
+
+**EKS Add-on Updates**
+
+| Add-on | Previous Version | New Version |
+|--------|-----------------|-------------|
+| CoreDNS | v1.11.4-eksbuild.24 | v1.13.1-eksbuild.1 |
+| eks-pod-identity-agent | v1.3.4-eksbuild.1 | v1.3.10-eksbuild.2 |
+| kube-proxy | v1.32.9-eksbuild.2 | v1.33.7-eksbuild.2 |
+| VPC CNI | v1.20.4-eksbuild.1 | v1.21.1-eksbuild.1 |
+| EBS CSI Driver | v1.37.0-eksbuild.1 | v1.54.0-eksbuild.1 |
+
+**EKS Managed Node Groups**
+
+- Updated system node AMI release version from `1.32.9-20260120` to `1.33.5-20260120`
+- Updated system_gpu node AMI release version from `1.32.9-20260120` to `1.33.5-20260120`
+
+### Manual Steps
+
+No manual steps required. The upgrade is handled automatically by Terraform.
+
+### Important Notes
+
+- The upgrade process is handled automatically by Terraform
+- EKS will perform a rolling upgrade of the control plane
+- Add-ons will be updated after the control plane upgrade completes
+- Node groups will continue running during the control plane upgrade
+- Minimal downtime is expected for the control plane during the upgrade
+
 ## From 1.1.0 to 1.2.0
 
 This release upgrades the AWS provider to 6.0 and Karpenter to v1.8, with additional infrastructure improvements.
