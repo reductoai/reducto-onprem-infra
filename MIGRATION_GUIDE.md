@@ -1,5 +1,40 @@
 # Upgrade
 
+## From 1.3.0 to 1.4.0
+
+This release upgrades the EKS cluster from Kubernetes 1.33 to 1.34 and updates the kube-proxy add-on and EKS managed node AMI versions.
+
+### Changes
+
+**Kubernetes Version**
+
+- Upgraded from 1.33 to 1.34
+
+**EKS Add-on Updates**
+
+| Add-on | Previous Version | New Version |
+|--------|-----------------|-------------|
+| kube-proxy | v1.33.7-eksbuild.2 | v1.34.1-eksbuild.2 |
+
+Note: Other add-ons (CoreDNS, VPC CNI, EBS CSI Driver, Pod Identity Agent) remain at their previous versions as they are compatible with Kubernetes 1.34.
+
+**EKS Managed Node Groups**
+
+- Updated system node AMI release version from `1.33.5-20260120` to `1.34.2-20260120`
+- Updated system_gpu node AMI release version from `1.33.5-20260120` to `1.34.2-20260120`
+
+### Manual Steps
+
+No manual steps required. The upgrade is handled automatically by Terraform.
+
+### Important Notes
+
+- The upgrade process is handled automatically by Terraform
+- EKS will perform a rolling upgrade of the control plane
+- Add-ons will be updated after the control plane upgrade completes
+- Node groups will continue running during the control plane upgrade
+- Minimal downtime is expected for the control plane during the upgrade
+
 ## From 1.2.0 to 1.3.0
 
 This release upgrades the EKS cluster from Kubernetes 1.32 to 1.33 and updates all related EKS add-ons to their latest compatible versions.
