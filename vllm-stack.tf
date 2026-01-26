@@ -32,6 +32,7 @@ resource "helm_release" "vllm_stack" {
   depends_on = [
     module.eks,
     kubernetes_secret_v1.hf_token,
+    kubectl_manifest.cluster_manifests,
     helm_release.nvidia_device_plugin
   ]
 }

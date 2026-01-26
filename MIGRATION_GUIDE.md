@@ -1,5 +1,52 @@
 # Upgrade
 
+## From 1.5.0 to 1.6.0
+
+This release upgrades multiple Helm charts to their latest versions, including a major version upgrade for the AWS Load Balancer Controller and significant updates to monitoring components.
+
+### Changes
+
+**Helm Chart Updates**
+
+| Chart | Previous Version | New Version | App Version Change |
+|-------|-----------------|-------------|--------------------|
+| aws-load-balancer-controller | 1.11.0 | 3.0.0 | v2.11.0 → v3.0.0 |
+| cert-manager | v1.15.3 | v1.19.2 | v1.15.3 → v1.19.2 |
+| ingress-nginx | 4.11.2 | 4.14.1 | 1.11.2 → 1.14.1 |
+| keda | 2.15.0 | 2.18.3 | 2.15.0 → 2.18.3 |
+| kube-prometheus-stack | 72.2.0 | 81.2.2 | v0.82.0 → v0.88.0 |
+| prometheus-operator-crds | 20.0.0 | 26.0.0 | v0.82.0 → v0.88.0 |
+
+**Storage Configuration**
+
+- Added default GP3 topology-aware StorageClass (`gp3-topology-aware`)
+- Removed hardcoded `gp2` storage class references from Prometheus and vLLM configurations
+- StorageClass now uses `WaitForFirstConsumer` binding mode for topology awareness
+
+**Infrastructure**
+
+- Added `cluster-manifests.tf` to automatically apply manifests from `manifests/cluster/` directory
+
+### Manual Steps
+
+**Prometheus StatefulSet Update**
+
+The Prometheus Operator upgrade may require deleting the existing Prometheus StatefulSet if the upgrade gets stuck:
+
+```bash
+kubectl delete sts prometheus-prometheus-stack-kube-prom-prometheus -n monitoring
+```
+
+The StatefulSet will be automatically recreated by the Prometheus Operator with the updated configuration. Prometheus data will be preserved as the PersistentVolumeClaim remains intact.
+
+### Important Notes
+
+- **AWS Load Balancer Controller v3.0.0** requires Kubernetes 1.22+ (cluster is on 1.34 ✓)
+- Helm chart version now aligns with controller version (was chart v1.x, now v3.x)
+- Gateway API support is now Generally Available (GA)
+- All breaking changes have been reviewed and configurations are compatible
+- Storage class changes only affect new PVC creation; existing volumes remain unchanged
+
 ## From 1.4.0 to 1.5.0
 
 This release adds conditional resource deployment, updates Terraform providers, upgrades the Reducto application, and improves Karpenter node lifecycle management.
