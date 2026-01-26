@@ -51,6 +51,12 @@ variable "db_username" {
   description = "Postgres DB username"
 }
 
+variable "enable_reducto" {
+  type        = bool
+  default     = true
+  description = "Whether to deploy the Reducto application via Helm"
+}
+
 variable "reducto_helm_repo_username" {
   description = "Username for Helm Registry for Reducto Helm Chart"
 }
@@ -103,6 +109,12 @@ variable "enable_nvidia_device_plugin" {
   type        = bool
   default     = false
   description = "Whether to install the NVIDIA device plugin for GPU support"
+}
+
+variable "enable_gpu_managed_node_group" {
+  type        = bool
+  default     = false
+  description = "Whether to create the GPU managed node group (system_gpu) for GPU workloads"
 }
 
 variable "enable_vllm_stack" {

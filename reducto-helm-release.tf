@@ -1,4 +1,5 @@
 resource "helm_release" "reducto" {
+  count            = var.enable_reducto ? 1 : 0
   namespace        = "reducto"
   name             = "reducto"
   create_namespace = true

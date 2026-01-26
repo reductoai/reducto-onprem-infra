@@ -145,69 +145,72 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   # aws ssm get-parameter --name /aws/service/eks/optimized-ami/${KUBERNETES_VERSION}/amazon-linux-2023/x86_64/standard/recommended/release_version --region us-west-2 --query "Parameter.Value" --output text
-  eks_managed_node_groups = {
-    system = {
-      ami_type                       = "AL2023_x86_64_STANDARD"
-      instance_types                 = ["m5.large"]
-      use_latest_ami_release_version = false
-      ami_release_version            = "1.34.2-20260120"
-      enable_monitoring              = true
+  eks_managed_node_groups = merge(
+    {
+      system = {
+        ami_type                       = "AL2023_x86_64_STANDARD"
+        instance_types                 = ["m5.large"]
+        use_latest_ami_release_version = false
+        ami_release_version            = "1.34.2-20260120"
+        enable_monitoring              = true
 
-      min_size     = 2
-      max_size     = 10
-      desired_size = 3
+        min_size     = 2
+        max_size     = 10
+        desired_size = 3
 
-      labels = {
-        worker-type = "system"
+        labels = {
+          worker-type = "system"
+        }
+
+        taints = {
+          addons = {
+            key    = "CriticalAddonsOnly"
+            value  = "true"
+            effect = "NO_SCHEDULE"
+          },
+        }
       }
+    },
+    var.enable_gpu_managed_node_group ? {
+      system_gpu = {
+        ami_type                       = "AL2023_x86_64_NVIDIA"
+        instance_types                 = ["p5.48xlarge"]
+        use_latest_ami_release_version = false
+        ami_release_version            = "1.34.2-20260120"
+        enable_monitoring              = true
 
-      taints = {
-        addons = {
-          key    = "CriticalAddonsOnly"
-          value  = "true"
-          effect = "NO_SCHEDULE"
-        },
-      }
-    }
+        min_size     = 1
+        max_size     = 2
+        desired_size = 0
 
-    system_gpu = {
-      ami_type                       = "AL2023_x86_64_NVIDIA"
-      instance_types                 = ["p5.48xlarge"]
-      use_latest_ami_release_version = false
-      ami_release_version            = "1.34.2-20260120"
-      enable_monitoring              = true
+        labels = {
+          worker-type              = "system-gpu"
+          gpu_arch                 = "NVIDIAH100"
+          "nvidia.com/gpu.present" = "true"
+        }
 
-      min_size     = 1
-      max_size     = 2
-      desired_size = 0
+        block_device_mappings = {
+          root = {
+            device_name = "/dev/xvda"
+            ebs = {
+              volume_size           = 200
+              volume_type           = "gp3"
+              encrypted             = true
+              delete_on_termination = true
+            }
+          }
+        }
 
-      labels = {
-        worker-type              = "system-gpu"
-        gpu_arch                 = "NVIDIAH100"
-        "nvidia.com/gpu.present" = "true"
-      }
-
-      block_device_mappings = {
-        root = {
-          device_name = "/dev/xvda"
-          ebs = {
-            volume_size           = 200
-            volume_type           = "gp3"
-            encrypted             = true
-            delete_on_termination = true
+        taints = {
+          gpu = {
+            key    = "nvidia.com/gpu"
+            value  = "Exists"
+            effect = "NO_SCHEDULE"
           }
         }
       }
-
-      taints = {
-        gpu = {
-          key    = "nvidia.com/gpu"
-          value  = "Exists"
-          effect = "NO_SCHEDULE"
-        }
-      }
-    }
-  }
+    } : {}
+  )
 
   node_security_group_tags = {
     "karpenter.sh/discovery"                    = var.cluster_name
