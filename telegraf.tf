@@ -7,7 +7,7 @@ resource "helm_release" "telegraf" {
   create_namespace = false
 
   values = [
-    "${file("values/telegraf.yaml")}"
+    file("values/telegraf.yaml")
   ]
 
   depends_on = [

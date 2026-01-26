@@ -36,7 +36,7 @@ resource "helm_release" "kube_prometheus_stack" {
   create_namespace = false
 
   values = [
-    "${file("values/kube-prometheus-stack.yaml")}",
+    file("values/kube-prometheus-stack.yaml"),
     <<-EOT
     prometheus:
       prometheusSpec:
@@ -78,4 +78,3 @@ resource "kubectl_manifest" "prometheus_rules" {
     helm_release.kube_prometheus_stack,
   ]
 }
-

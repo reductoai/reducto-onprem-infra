@@ -188,5 +188,3 @@ data "aws_iam_policy_document" "rds_enhanced_monitoring" {
     }
   }
 }
-
-

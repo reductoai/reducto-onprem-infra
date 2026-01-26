@@ -7,7 +7,7 @@ resource "helm_release" "ingress_nginx" {
   create_namespace = true
 
   values = [
-    "${file("values/ingress-nginx-controller.yaml")}",
+    file("values/ingress-nginx-controller.yaml"),
   ]
 
   depends_on = [

@@ -1,4 +1,4 @@
-# Reducto 
+# Reducto
 
 Install Reducto on EKS using Terraform.
 
@@ -130,6 +130,6 @@ To customize NLB configuration:
 
 ## Monitoring
 
-Reducto internal job queue length is a good indicator of overall worker health. And 5xx metric from Reducto ingress is a good indicator of API health. 
+Reducto internal job queue length is a good indicator of overall worker health. And 5xx metric from Reducto ingress is a good indicator of API health.
 
 `PrometheusRule` in `manifests/prometheus/rules/01-reducto.yaml` monitors internal queue length and 5xx metrics. When queue doesn't go down for a long duration OR API returns 5xx status for a long duration, alerts are sent to configured Slack channel.

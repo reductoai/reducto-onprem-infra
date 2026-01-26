@@ -1,6 +1,6 @@
 resource "kubectl_manifest" "datadog_secret" {
-    count = var.datadog_api_key != "" ? 1 : 0
-    yaml_body = <<-YAML
+  count     = var.datadog_api_key != "" ? 1 : 0
+  yaml_body = <<-YAML
     apiVersion: v1
     kind: Secret
     metadata:
@@ -11,13 +11,13 @@ resource "kubectl_manifest" "datadog_secret" {
       api-key: ${var.datadog_api_key}
     YAML
 
-    depends_on = [
-        kubectl_manifest.monitoring_ns,
-    ]
+  depends_on = [
+    kubectl_manifest.monitoring_ns,
+  ]
 }
 
 resource "helm_release" "datadog" {
-  count = var.datadog_api_key != "" ? 1 : 0
+  count            = var.datadog_api_key != "" ? 1 : 0
   name             = "datadog"
   repository       = "https://helm.datadoghq.com"
   chart            = "datadog"
@@ -27,7 +27,7 @@ resource "helm_release" "datadog" {
   wait             = false
 
   values = [
-    "${file("values/datadog.yaml")}",
+    file("values/datadog.yaml"),
     <<-EOT
     datadog:
       site: ${var.datadog_site}
@@ -41,7 +41,7 @@ resource "helm_release" "datadog" {
 
 
 locals {
-  otel_env_vars = { 
+  otel_env_vars = {
     env = {
       OTEL_EXPORTER_OTLP_ENDPOINT = "http://datadog.monitoring.svc.cluster.local:4318"
     }

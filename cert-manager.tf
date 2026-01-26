@@ -22,7 +22,7 @@ resource "helm_release" "cert_manager" {
   create_namespace = true
 
   values = [
-    "${file("values/cert-manager.yaml")}"
+    file("values/cert-manager.yaml")
   ]
 
   depends_on = [

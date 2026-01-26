@@ -46,4 +46,3 @@ resource "aws_db_subnet_group" "default" {
   name       = var.cluster_name
   subnet_ids = module.vpc.private_subnets
 }
-

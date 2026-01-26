@@ -42,4 +42,3 @@ resource "helm_release" "aws_load_balancer_controller" {
     module.load_balancer_controller_irsa_role,
   ]
 }
-

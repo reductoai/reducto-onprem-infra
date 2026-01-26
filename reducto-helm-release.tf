@@ -12,7 +12,7 @@ resource "helm_release" "reducto" {
   wait    = false
 
   values = [
-    "${file("values/reducto.yaml")}",
+    file("values/reducto.yaml"),
     var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
     <<-EOT
     ingress:

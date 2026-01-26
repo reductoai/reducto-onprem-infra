@@ -1,13 +1,16 @@
 variable "region" {
   default = "us-east-1"
+  type    = string
 }
 
 variable "cluster_name" {
   default = "reducto-ai"
+  type    = string
 }
 
 variable "vpc_cidr" {
   default = "10.125.0.0/16"
+  type    = string
 }
 
 variable "private_subnets" {
@@ -40,15 +43,18 @@ variable "db_instance_class" {
 
 variable "db_multi_az" {
   default = true
+  type    = bool
 }
 
 variable "db_deletion_protection" {
   default = true
+  type    = bool
 }
 
 variable "db_username" {
   default     = "reducto"
   description = "Postgres DB username"
+  type        = string
 }
 
 variable "enable_reducto" {
@@ -59,30 +65,36 @@ variable "enable_reducto" {
 
 variable "reducto_helm_repo_username" {
   description = "Username for Helm Registry for Reducto Helm Chart"
+  type        = string
 }
 
 variable "reducto_helm_repo_password" {
   sensitive   = true
   description = "Password for Helm Registry for Reducto Helm Chart"
+  type        = string
 }
 
 variable "reducto_helm_chart_version" {
   description = "Reducto Helm Chart version"
   default     = "1.11.32"
+  type        = string
 }
 
 variable "reducto_helm_chart" {
   description = "Path to Helm Chart on OCI registry"
   default     = "oci://registry.reducto.ai/reducto-api/reducto"
+  type        = string
 }
 
 variable "reducto_host" {
   description = "Full host DNS for Reducto (Example: reducto.mydomain.com)"
+  type        = string
 }
 
 variable "cloudflare_api_token" {
   description = "Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates"
   sensitive   = true
+  type        = string
 }
 
 # Configuration for monitoring and alerting
@@ -90,17 +102,20 @@ variable "cloudflare_api_token" {
 variable "slack_webhook_url" {
   description = "Slack Webhook URL for Alertmanager"
   sensitive   = true
+  type        = string
 }
 
 variable "datadog_site" {
   description = "Datadog site"
   default     = "us3.datadoghq.com"
+  type        = string
 }
 
 variable "datadog_api_key" {
   description = "Datadog API key"
   sensitive   = true
   default     = ""
+  type        = string
 }
 
 # Configuration for vLLM
