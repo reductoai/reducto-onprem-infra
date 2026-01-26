@@ -1,5 +1,54 @@
 # Upgrade
 
+## From 1.1.0 to 1.2.0
+
+This release upgrades the AWS provider to 6.0 and Karpenter to v1.8, with additional infrastructure improvements.
+
+### Changes
+
+**AWS Provider & Karpenter**
+
+- Upgraded AWS provider from 5.92.0 to 6.28.0 (breaking: AWS provider 6.0)
+- Upgraded Karpenter from v1.2.1 to v1.8.3 with separate CRD management
+- Upgraded terraform-aws-modules/eks Karpenter module from 20.33.1 to 21.12.0
+
+**EKS Managed Node Groups**
+
+- Pinned AMI release version to `1.32.9-20260120` for system node groups
+- Enabled detailed monitoring for all managed node groups
+- Removed startup node group (no longer needed for bootstrap capacity)
+
+**Karpenter**
+
+- Migrated from Bottlerocket OS (`bottlerocket@v1.29.0`) to Amazon Linux 2023 (`al2023@v20260120`)
+- Updated storage configuration to use single 200Gi volume instead of dual volume setup
+- Enabled detailed monitoring for Karpenter managed nodes
+
+### Manual Steps
+
+**Required: Label and annotate Karpenter CRDs for Helm management**
+
+Before running `terraform apply`, label and annotate the existing Karpenter CRDs so they can be managed by the new karpenter-crd Helm release:
+
+```bash
+kubectl label crd ec2nodeclasses.karpenter.k8s.aws app.kubernetes.io/managed-by=Helm
+kubectl annotate crd ec2nodeclasses.karpenter.k8s.aws meta.helm.sh/release-name=karpenter-crd
+kubectl annotate crd ec2nodeclasses.karpenter.k8s.aws meta.helm.sh/release-namespace=kube-system
+
+kubectl label crd nodeclaims.karpenter.sh app.kubernetes.io/managed-by=Helm
+kubectl annotate crd nodeclaims.karpenter.sh meta.helm.sh/release-name=karpenter-crd
+kubectl annotate crd nodeclaims.karpenter.sh meta.helm.sh/release-namespace=kube-system
+
+kubectl label crd nodepools.karpenter.sh app.kubernetes.io/managed-by=Helm
+kubectl annotate crd nodepools.karpenter.sh meta.helm.sh/release-name=karpenter-crd
+kubectl annotate crd nodepools.karpenter.sh meta.helm.sh/release-namespace=kube-system
+```
+
+### Important Notes
+
+- The startup node group will be removed, but system node group capacity provides sufficient bootstrap capacity
+- Pinning AMI versions prevents unexpected node updates and provides better stability
+
 ## From 1.0.0 to 1.1.0
 
 This release upgrades the EKS cluster from Kubernetes 1.31 to 1.32, updates all related EKS add-ons, and includes configuration improvements for easier infrastructure teardown and development workflows.

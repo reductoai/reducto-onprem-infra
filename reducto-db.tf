@@ -107,7 +107,7 @@ module "rds_proxy_sg" {
 
 module "rds_proxy" {
   source  = "terraform-aws-modules/rds-proxy/aws"
-  version = "~> 3.1"
+  version = "~> 4.2.1"
 
   name                   = var.cluster_name
   iam_role_name          = "${var.cluster_name}-rds-proxy"
@@ -116,6 +116,7 @@ module "rds_proxy" {
 
   auth = {
     (var.db_username) = {
+      auth_scheme               = "SECRETS"
       description               = aws_secretsmanager_secret.superuser.description
       secret_arn                = aws_secretsmanager_secret.superuser.arn
       client_password_auth_type = "POSTGRES_SCRAM_SHA_256"
