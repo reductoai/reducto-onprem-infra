@@ -1,16 +1,19 @@
 variable "region" {
-  default = "us-east-1"
-  type    = string
+  description = "AWS region where resources will be created"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "cluster_name" {
-  default = "reducto-ai"
-  type    = string
+  description = "Name of the EKS cluster and prefix for related resources"
+  type        = string
+  default     = "reducto-ai"
 }
 
 variable "vpc_cidr" {
-  default = "10.125.0.0/16"
-  type    = string
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.125.0.0/16"
 }
 
 variable "private_subnets" {
@@ -26,13 +29,15 @@ variable "public_subnets" {
 }
 
 variable "cluster_endpoint_public_access" {
-  type    = bool
-  default = true
+  description = "Enable public access to the EKS cluster API endpoint"
+  type        = bool
+  default     = true
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
-  type    = list(string)
-  default = ["0.0.0.0/0"]
+  description = "List of CIDR blocks allowed to access the public EKS API endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 variable "db_instance_class" {
@@ -42,13 +47,15 @@ variable "db_instance_class" {
 }
 
 variable "db_multi_az" {
-  default = true
-  type    = bool
+  description = "Enable Multi-AZ deployment for RDS database for high availability"
+  type        = bool
+  default     = true
 }
 
 variable "db_deletion_protection" {
-  default = true
-  type    = bool
+  description = "Enable deletion protection for RDS database to prevent accidental deletion"
+  type        = bool
+  default     = true
 }
 
 variable "db_username" {
