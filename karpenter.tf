@@ -129,7 +129,7 @@ resource "kubectl_manifest" "karpenter_node_pool" {
       disruption:
         budgets:
         - nodes: 100%
-        consolidateAfter: 5s
+        consolidateAfter: 3m
         consolidationPolicy: WhenEmptyOrUnderutilized
   YAML
 
