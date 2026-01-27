@@ -5,20 +5,21 @@ resource "random_password" "db_password" {
 
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "6.10.0"
+  version = "7.1.0"
 
   manage_master_user_password = false
   username                    = var.db_username
-  password                    = random_password.db_password.result
+  password_wo                 = random_password.db_password.result
+  password_wo_version         = 1
 
   # When using RDS Proxy w/ IAM auth - Database must be username/password auth, not IAM
   iam_database_authentication_enabled = false
 
   identifier           = var.cluster_name
   engine               = "postgres"
-  engine_version       = "16.6"
-  family               = "postgres16" # DB parameter group
-  major_engine_version = "16"         # DB option group
+  engine_version       = "17.7"
+  family               = "postgres17" # DB parameter group
+  major_engine_version = "17"         # DB option group
   instance_class       = var.db_instance_class
 
   storage_type          = "gp3"
@@ -38,9 +39,11 @@ module "rds" {
   maintenance_window         = "sun:06:00-sun:07:00"
   deletion_protection        = var.db_deletion_protection
   auto_minor_version_upgrade = true
-  copy_tags_to_snapshot      = true
-  publicly_accessible        = false
-  skip_final_snapshot        = false
+  # uncomment allow_major_version_upgrade = true to perform major version upgrade
+  #allow_major_version_upgrade = true
+  copy_tags_to_snapshot = true
+  publicly_accessible   = false
+  skip_final_snapshot   = false
 
   performance_insights_enabled          = true
   performance_insights_retention_period = 7

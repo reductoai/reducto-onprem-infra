@@ -1,5 +1,138 @@
 # Upgrade
 
+## From 1.7.0 to 1.8.0
+
+This release upgrades the RDS infrastructure to use the latest RDS Terraform module and PostgreSQL major version, bringing significant new features and improved security for database credentials.
+
+### Changes
+
+**RDS Module Upgrade**
+
+- RDS Terraform module: 6.10.0 → 7.1.0 (major version upgrade)
+- Minimum Terraform version requirement: 1.11+ (for write-only attribute support)
+- Minimum AWS provider requirement: 6.27+
+
+**PostgreSQL Engine Upgrade**
+
+- PostgreSQL engine: 16.6 → 17.7 (major version upgrade)
+- Parameter group family: postgres16 → postgres17
+- Major engine version: 16 → 17
+
+**Security Improvements**
+
+- Migrated from `password` to `password_wo` (write-only password parameter)
+- Passwords are no longer stored in Terraform state files
+- Added `password_wo_version` parameter for password rotation tracking
+
+**Configuration Changes**
+
+- Added commented-out `allow_major_version_upgrade` flag (must be uncommented to perform major version upgrade)
+- Updated .gitignore to cover additional Terraform state file patterns
+
+### Manual Steps
+
+**1. Verify Prerequisites**
+
+Ensure your Terraform and AWS provider versions meet the new requirements:
+
+```bash
+terraform version  # Must be >= 1.11
+```
+
+Check your `versions.tf` or provider configuration to ensure AWS provider is >= 6.27.
+
+**2. Backup Your Database**
+
+Before performing the upgrade, create a manual snapshot of your RDS instance:
+
+```bash
+aws rds create-db-snapshot \
+  --db-instance-identifier <your-cluster-name> \
+  --db-snapshot-identifier <your-cluster-name>-pre-v1-8-0-$(date +%Y%m%d-%H%M%S)
+```
+
+**3. Enable Major Version Upgrade**
+
+Edit `reducto-db.tf` and uncomment the `allow_major_version_upgrade` line:
+
+```hcl
+# Change this:
+#allow_major_version_upgrade = true
+
+# To this:
+allow_major_version_upgrade = true
+```
+
+**4. Apply the Upgrade**
+
+```bash
+terraform init -upgrade  # Update to new module versions
+terraform plan          # Review the changes carefully
+terraform apply         # Execute the upgrade
+```
+
+**5. Monitor the Upgrade**
+
+The upgrade process will take time depending on your database size. Monitor progress:
+
+```bash
+aws rds describe-db-instances \
+  --db-instance-identifier <your-cluster-name> \
+  --query 'DBInstances[0].[DBInstanceStatus,EngineVersion]' \
+  --output table
+```
+
+**6. Post-Upgrade Verification**
+
+After the upgrade completes:
+
+```bash
+# Verify PostgreSQL version
+aws rds describe-db-instances \
+  --db-instance-identifier <your-cluster-name> \
+  --query 'DBInstances[0].EngineVersion' \
+  --output text
+
+# Test application connectivity
+kubectl port-forward service/reducto-reducto-http 4567:80 -n reducto
+# Test your application endpoints
+```
+
+**7. Disable Major Version Upgrade Flag (Optional)**
+
+After the upgrade succeeds, you may want to comment out the `allow_major_version_upgrade` flag again to prevent accidental major version upgrades in the future:
+
+```hcl
+#allow_major_version_upgrade = true
+```
+
+Then run `terraform apply` to update the configuration.
+
+### Important Notes
+
+**Downtime Considerations**
+
+- **Multi-AZ Disabled (`db_multi_az = false`)**: Expect **10-30 minutes of downtime** during the upgrade. The database will be unavailable while the instance is upgraded and rebooted.
+
+- **Multi-AZ Enabled (`db_multi_az = true`)**: Expect **minimal downtime** (typically 1-2 minutes). The upgrade process:
+  1. Upgrades the standby instance first
+  2. Performs a failover to the upgraded standby (brief downtime here)
+  3. Upgrades the former primary instance
+
+  The actual downtime is limited to the failover duration, but the entire upgrade process may take 30-60 minutes.
+
+**RDS Module v7.x Breaking Changes**
+
+- **Write-only passwords**: The `password` parameter is replaced by `password_wo` and `password_wo_version`. Passwords are no longer stored in Terraform state, improving security.
+- **Terraform 1.11+ required**: The write-only attribute feature requires Terraform 1.11 or later.
+- **AWS Provider 6.27+ required**: The module requires AWS provider version 6.27 or later.
+
+**Rollback Considerations**
+
+- **Major version downgrades are not supported** by AWS RDS. Once upgraded to PostgreSQL 17, you cannot downgrade back to PostgreSQL 16.
+- If issues occur, you must restore from a snapshot taken before the upgrade.
+- Restoring from snapshot will result in data loss for any transactions that occurred after the snapshot was taken.
+
 ## From 1.6.0 to 1.7.0
 
 This release improves infrastructure reliability through pinned dependency versions, better resource ordering, and optimized autoscaling configuration.
