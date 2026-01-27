@@ -28,6 +28,7 @@ resource "helm_release" "cert_manager" {
   depends_on = [
     module.eks,
     helm_release.aws_load_balancer_controller,
+    kubectl_manifest.karpenter_node_pool,
   ]
 }
 

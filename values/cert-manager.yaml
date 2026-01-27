@@ -1,6 +1,6 @@
 crds:
   enabled: true
-  keep: true
+  keep: false
 
 ingressShim:
   defaultIssuerGroup: cert-manager.io
