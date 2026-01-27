@@ -71,6 +71,7 @@ resource "helm_release" "opentelemetry_collector" {
   chart            = "opentelemetry-collector"
   version          = "0.138.0"
   wait             = false
+  timeout          = var.helm_release_timeout
 
   values = concat(
     [

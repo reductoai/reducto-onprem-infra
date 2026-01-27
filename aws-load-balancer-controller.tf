@@ -21,6 +21,7 @@ resource "helm_release" "aws_load_balancer_controller" {
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
   version    = "3.0.0"
+  timeout    = var.helm_release_timeout
 
   values = [
     <<-EOT

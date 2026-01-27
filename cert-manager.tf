@@ -20,6 +20,7 @@ resource "helm_release" "cert_manager" {
   version          = "v1.19.2"
   namespace        = "cert-manager"
   create_namespace = true
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/cert-manager.yaml")

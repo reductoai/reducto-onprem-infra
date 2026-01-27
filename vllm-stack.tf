@@ -22,7 +22,7 @@ resource "helm_release" "vllm_stack" {
 
   values = [file("values/vllm-stack.yaml")]
 
-  timeout         = 900
+  timeout         = var.helm_release_timeout
   cleanup_on_fail = true
   force_update    = true
   recreate_pods   = true

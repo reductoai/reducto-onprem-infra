@@ -10,6 +10,7 @@ resource "helm_release" "reducto" {
   chart   = var.reducto_helm_chart
   version = var.reducto_helm_chart_version
   wait    = false
+  timeout = var.helm_release_timeout
 
   values = [
     file("values/reducto.yaml"),

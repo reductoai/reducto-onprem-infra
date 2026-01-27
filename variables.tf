@@ -179,3 +179,11 @@ variable "otel_datadog_api_key" {
   sensitive   = true
   default     = "admin"
 }
+
+# Helm Configuration
+
+variable "helm_release_timeout" {
+  description = "Timeout in seconds for Helm release operations"
+  type        = number
+  default     = 900 # 15 minutes
+}

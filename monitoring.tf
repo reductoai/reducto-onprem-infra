@@ -19,6 +19,7 @@ resource "helm_release" "prometheus_crds" {
   version          = "26.0.0"
   namespace        = "monitoring"
   create_namespace = false
+  timeout          = var.helm_release_timeout
 
   depends_on = [
     kubectl_manifest.monitoring_ns,
@@ -34,6 +35,7 @@ resource "helm_release" "kube_prometheus_stack" {
   version          = "81.2.2"
   namespace        = "monitoring"
   create_namespace = false
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/kube-prometheus-stack.yaml"),

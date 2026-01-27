@@ -6,6 +6,7 @@ resource "helm_release" "nvidia_device_plugin" {
   chart      = "nvidia-device-plugin"
   namespace  = "kube-system"
   version    = "0.17.4"
+  timeout    = var.helm_release_timeout
 
   values = [file("values/nvidia-device-plugin.yaml")]
 

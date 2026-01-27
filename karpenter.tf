@@ -19,6 +19,7 @@ resource "helm_release" "karpenter-crd" {
   chart      = "karpenter-crd"
   version    = "1.8.3"
   wait       = false
+  timeout    = var.helm_release_timeout
 }
 
 resource "helm_release" "karpenter" {
@@ -28,6 +29,7 @@ resource "helm_release" "karpenter" {
   chart      = "karpenter"
   version    = "1.8.3"
   wait       = false
+  timeout    = var.helm_release_timeout
 
   values = [
     <<-EOT

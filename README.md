@@ -136,6 +136,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_enable_otel_collector"></a> [enable\_otel\_collector](#input\_enable\_otel\_collector) | Whether to deploy the OpenTelemetry Collector on the cluster | `bool` | `false` | no |
 | <a name="input_enable_reducto"></a> [enable\_reducto](#input\_enable\_reducto) | Whether to deploy the Reducto application via Helm | `bool` | `true` | no |
 | <a name="input_enable_vllm_stack"></a> [enable\_vllm\_stack](#input\_enable\_vllm\_stack) | Whether to deploy the vLLM stack on the cluster | `bool` | `false` | no |
+| <a name="input_helm_release_timeout"></a> [helm\_release\_timeout](#input\_helm\_release\_timeout) | Timeout in seconds for Helm release operations | `number` | `900` | no |
 | <a name="input_otel_auth_token"></a> [otel\_auth\_token](#input\_otel\_auth\_token) | Auth token used by the OpenTelemetry collector | `string` | `""` | no |
 | <a name="input_otel_datadog_api_key"></a> [otel\_datadog\_api\_key](#input\_otel\_datadog\_api\_key) | Datadog API key used by the OpenTelemetry collector exporter | `string` | `"admin"` | no |
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |

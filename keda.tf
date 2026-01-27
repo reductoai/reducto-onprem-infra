@@ -5,6 +5,7 @@ resource "helm_release" "keda" {
   version          = "2.18.3"
   namespace        = "keda"
   create_namespace = true
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/keda.yaml")

@@ -5,6 +5,7 @@ resource "helm_release" "telegraf" {
   version          = "1.8.55"
   namespace        = "monitoring"
   create_namespace = false
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/telegraf.yaml")

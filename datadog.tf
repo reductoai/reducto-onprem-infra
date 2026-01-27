@@ -25,6 +25,7 @@ resource "helm_release" "datadog" {
   namespace        = "monitoring"
   create_namespace = false
   wait             = false
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/datadog.yaml"),

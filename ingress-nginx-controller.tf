@@ -5,6 +5,7 @@ resource "helm_release" "ingress_nginx" {
   version          = "4.14.1"
   namespace        = "ingress-nginx"
   create_namespace = true
+  timeout          = var.helm_release_timeout
 
   values = [
     file("values/ingress-nginx-controller.yaml"),
