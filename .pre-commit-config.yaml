@@ -29,3 +29,9 @@ repos:
       - id: terraform_fmt
       - id: terraform_tflint
       - id: terraform_docs
+      - id: terraform_validate
+        args:
+          - --hook-config=--retry-once-with-cleanup=true
+      - id: terraform_providers_lock
+        args:
+          - --hook-config=--mode=regenerate-lockfile-if-some-platform-missed
