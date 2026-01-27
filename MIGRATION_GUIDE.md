@@ -1,5 +1,57 @@
 # Upgrade
 
+## From 1.6.0 to 1.7.0
+
+This release improves infrastructure reliability through pinned dependency versions, better resource ordering, and optimized autoscaling configuration.
+
+### Changes
+
+**Terraform Provider and Module Versions**
+
+All Terraform providers and modules have been pinned to exact versions (removing `~>` constraints):
+
+| Provider/Module | Version |
+|----------------|---------|
+| AWS Provider | 6.28.0 |
+| Helm Provider | 3.1.1 |
+| Kubectl Provider | 1.19.0 |
+| Kubernetes Provider | 3.0.1 |
+| Random Provider | 3.8.0 |
+| Null Provider | 3.2.4 |
+| VPC Module | 6.6.0 |
+| RDS Module | 6.10.0 |
+| Security Group Module | 5.2.0 |
+| RDS Proxy Module | 4.2.1 |
+
+**EKS Add-on Configuration**
+
+- Added `before_compute = true` to critical EKS add-ons (eks-pod-identity-agent, kube-proxy, vpc-cni)
+- Ensures add-ons are fully ready before managed node groups are created
+- Improves cluster bootstrap reliability
+
+**Resource Dependencies**
+
+- cert-manager now depends on Karpenter NodePool to ensure proper resource ordering
+- Telegraf now depends on kube-prometheus-stack to avoid timing issues
+- Disabled CRD retention on cert-manager uninstall (`crds.keep: false`)
+
+**Karpenter Configuration**
+
+- Increased node consolidation delay from 5 seconds to 3 minutes
+- Allows nodes to stabilize before consolidation decisions
+- Reduces unnecessary node churn in production environments
+
+### Manual Steps
+
+No manual steps required. The upgrade is handled automatically by Terraform.
+
+### Important Notes
+
+- **Terraform Plan Warning**: When running `terraform plan`, you may see EKS add-ons showing as updated with `before_compute` changes. These updates are metadata-only and will **not cause any downtime** or pod restarts. The add-ons themselves are not being recreated, only their configuration is being updated in Terraform state.
+- Pinning exact versions provides better reproducibility and prevents unexpected updates
+- The `before_compute` flag is a Terraform-only configuration that affects resource creation order
+- Karpenter consolidation timing change only affects future consolidation decisions
+
 ## From 1.5.0 to 1.6.0
 
 This release upgrades multiple Helm charts to their latest versions, including a major version upgrade for the AWS Load Balancer Controller and significant updates to monitoring components.

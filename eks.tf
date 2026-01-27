@@ -60,6 +60,7 @@ module "eks" {
 
     eks-pod-identity-agent = {
       addon_version     = "v1.3.10-eksbuild.2"
+      before_compute    = true
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -76,6 +77,7 @@ module "eks" {
 
     kube-proxy = {
       addon_version     = "v1.34.1-eksbuild.2"
+      before_compute    = true
       resolve_conflicts = "OVERWRITE"
       configuration_values = jsonencode({
         resources = {
@@ -92,6 +94,7 @@ module "eks" {
 
     vpc-cni = {
       addon_version            = "v1.21.1-eksbuild.1"
+      before_compute           = true
       resolve_conflicts        = "OVERWRITE"
       service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
