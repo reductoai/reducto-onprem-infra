@@ -5,7 +5,7 @@ resource "random_password" "db_password" {
 
 module "rds" {
   source  = "terraform-aws-modules/rds/aws"
-  version = "~> 6.10"
+  version = "6.10.0"
 
   manage_master_user_password = false
   username                    = var.db_username
@@ -54,7 +54,7 @@ module "rds" {
 
 module "rds_sg" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 5.2"
+  version = "5.2.0"
 
   name   = "${var.cluster_name}-rds"
   vpc_id = module.vpc.vpc_id
@@ -80,7 +80,7 @@ module "rds_sg" {
 
 module "rds_proxy_sg" {
   source  = "terraform-aws-modules/security-group/aws"
-  version = "~> 5.2"
+  version = "5.2"
 
   name   = "rds_proxy"
   vpc_id = module.vpc.vpc_id
@@ -107,7 +107,7 @@ module "rds_proxy_sg" {
 
 module "rds_proxy" {
   source  = "terraform-aws-modules/rds-proxy/aws"
-  version = "~> 4.2.1"
+  version = "4.2.1"
 
   name                   = var.cluster_name
   iam_role_name          = "${var.cluster_name}-rds-proxy"
