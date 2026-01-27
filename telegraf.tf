@@ -13,6 +13,7 @@ resource "helm_release" "telegraf" {
   depends_on = [
     kubectl_manifest.monitoring_ns,
     kubectl_manifest.telegraf,
+    helm_release.kube_prometheus_stack,
   ]
 }
 
