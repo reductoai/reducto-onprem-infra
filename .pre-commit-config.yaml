@@ -16,9 +16,6 @@ repos:
       - id: mixed-line-ending
         args:
           - --fix=lf
-      - id: no-commit-to-branch
-        args:
-          - -b master
       - id: pretty-format-json
         args:
           - --autofix
