@@ -83,6 +83,7 @@ alertmanager:
       {{ end }}
 
   alertmanagerSpec:
+    priorityClassName: system-cluster-critical
     storage:
       volumeClaimTemplate:
         spec:
@@ -144,6 +145,7 @@ prometheus:
 
   prometheusSpec:
     serviceAccountName: prometheus
+    priorityClassName: system-cluster-critical
     ruleSelectorNilUsesHelmValues: false
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false

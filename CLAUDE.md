@@ -12,7 +12,7 @@ This repository contains Terraform infrastructure-as-code for deploying Reducto 
 
 The infrastructure is organized into several key modules:
 
-1. **EKS Cluster** (`eks.tf`, `main.tf`): Kubernetes 1.34 cluster with managed node groups:
+1. **EKS Cluster** (`eks.tf`, `main.tf`): Kubernetes 1.35 cluster with managed node groups:
    - `system`: Tainted nodes for critical add-ons (m5.large, 2-10 nodes)
    - `system_gpu`: Optional GPU nodes (p5.48xlarge, enabled via `enable_gpu_managed_node_group = true`)
 
@@ -65,6 +65,7 @@ The infrastructure is organized into several key modules:
 
 1. Configure `backend.tf` for remote state (or use local state for testing)
 2. Review `variables.tf` and create `terraform.tfvars`:
+
    ```hcl
    reducto_helm_repo_username = "..."
    reducto_helm_repo_password = "..."
@@ -74,6 +75,7 @@ The infrastructure is organized into several key modules:
    ```
 
 3. Run standard Terraform commands:
+
    ```bash
    terraform init
    terraform plan
@@ -83,21 +85,25 @@ The infrastructure is organized into several key modules:
 ### Common Operations
 
 **Update kubeconfig:**
+
 ```bash
 aws eks update-kubeconfig --region us-east-1 --name reducto-ai
 ```
 
 **Port-forward to Reducto service:**
+
 ```bash
 kubectl port-forward service/reducto-reducto-http 4567:80 -n reducto
 ```
 
 **Check Karpenter logs:**
+
 ```bash
 kubectl logs -n kube-system -l app.kubernetes.io/name=karpenter
 ```
 
 **View Prometheus rules:**
+
 ```bash
 kubectl get prometheusrules -n monitoring
 ```
@@ -119,6 +125,7 @@ To destroy infrastructure:
 ### IAM Roles for Service Accounts (IRSA)
 
 The Reducto application uses IRSA for S3 access. The pattern is:
+
 1. Create IAM role with assume role policy for EKS OIDC provider (`reducto-iam.tf`)
 2. Attach policies for required AWS services (S3, etc.)
 3. Annotate Kubernetes ServiceAccount with IAM role ARN in Helm values
@@ -126,6 +133,7 @@ The Reducto application uses IRSA for S3 access. The pattern is:
 ### Helm Values Organization
 
 Helm values are split between:
+
 - Static YAML files in `values/` directory
 - Dynamic values inline in Terraform (for computed values like database URL, IAM roles)
 
@@ -136,6 +144,7 @@ EKS add-ons are managed via the `cluster_addons` block in `eks.tf`. All add-ons 
 ### Security Groups
 
 Custom security group rules allow:
+
 - VPC access to EKS control plane (port 443)
 - Webhook admission traffic between cluster and nodes (port 8443)
 - All traffic between nodes (for pod networking)
@@ -143,6 +152,7 @@ Custom security group rules allow:
 ## Upgrades
 
 See `MIGRATION_GUIDE.md` for version-specific upgrade instructions. When upgrading Kubernetes versions:
+
 1. Update `cluster_version` in `eks.tf`
 2. Update all add-on versions to compatible versions
 3. EKS will perform rolling upgrade automatically
@@ -151,6 +161,7 @@ See `MIGRATION_GUIDE.md` for version-specific upgrade instructions. When upgradi
 ## Variables and Configuration
 
 Key variables to customize:
+
 - `cluster_name`: EKS cluster name (default: "reducto-ai")
 - `vpc_cidr`: VPC CIDR block (default: "10.125.0.0/16")
 - `cluster_endpoint_public_access`: Enable public API endpoint (default: true)
@@ -159,6 +170,7 @@ Key variables to customize:
 - `reducto_helm_chart_version`: Reducto version to deploy
 
 For GPU workloads, enable:
+
 - `enable_gpu_managed_node_group = true` (creates the system_gpu managed node group)
 - `enable_nvidia_device_plugin = true`
 - `enable_vllm_stack = true` (and provide `vllm_stack_hf_token`)

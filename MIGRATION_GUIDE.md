@@ -1,5 +1,54 @@
 # Upgrade
 
+## From 1.8.0 to 1.9.0
+
+This release upgrades the EKS cluster from Kubernetes 1.34 to 1.35 and updates all related EKS add-ons to their latest compatible versions. It also adds priority class configuration for Prometheus and Alertmanager components.
+
+### Changes
+
+**Kubernetes Version**
+
+- Upgraded from 1.34 to 1.35
+
+**EKS Add-on Updates**
+
+| Add-on | Previous Version | New Version |
+|--------|-----------------|-------------|
+| kube-proxy | v1.34.1-eksbuild.2 | v1.35.0-eksbuild.2 |
+| vpc-cni | v1.21.1-eksbuild.1 | v1.21.1-eksbuild.3 |
+| aws-ebs-csi-driver | v1.54.0-eksbuild.1 | v1.55.0-eksbuild.1 |
+
+Note: Other add-ons (CoreDNS, Pod Identity Agent) remain at their previous versions as they are compatible with Kubernetes 1.35.
+
+**EKS Managed Node Groups**
+
+- Updated system node AMI release version from `1.34.2-20260120` to `1.35.0-20260129`
+- Updated system_gpu node AMI release version from `1.34.2-20260120` to `1.35.0-20260129`
+
+**Monitoring Stack Improvements**
+
+- Added `priorityClassName: system-cluster-critical` to Prometheus and Alertmanager StatefulSets
+- Ensures monitoring components are protected during node pressure and evictions
+- Improves cluster observability during high resource utilization scenarios
+
+**Documentation Updates**
+
+- Updated CLAUDE.md to reflect Kubernetes 1.35
+- Improved formatting and readability in CLAUDE.md
+
+### Manual Steps
+
+No manual steps required. The upgrade is handled automatically by Terraform.
+
+### Important Notes
+
+- The upgrade process is handled automatically by Terraform
+- EKS will perform a rolling upgrade of the control plane
+- Add-ons will be updated after the control plane upgrade completes
+- Node groups will continue running during the control plane upgrade
+- Minimal downtime is expected for the control plane during the upgrade
+- The priority class changes only affect new or restarted Prometheus/Alertmanager pods
+
 ## From 1.7.0 to 1.8.0
 
 This release upgrades the RDS infrastructure to use the latest RDS Terraform module and PostgreSQL major version, bringing significant new features and improved security for database credentials.

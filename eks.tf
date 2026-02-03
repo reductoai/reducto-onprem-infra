@@ -3,7 +3,7 @@ module "eks" {
   version = "21.15.1"
 
   name               = var.cluster_name
-  kubernetes_version = "1.34"
+  kubernetes_version = "1.35"
 
   endpoint_public_access       = var.cluster_endpoint_public_access
   endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
@@ -74,7 +74,7 @@ module "eks" {
     }
 
     kube-proxy = {
-      addon_version  = "v1.34.1-eksbuild.2"
+      addon_version  = "v1.35.0-eksbuild.2"
       before_compute = true
       configuration_values = jsonencode({
         resources = {
@@ -90,7 +90,7 @@ module "eks" {
     }
 
     vpc-cni = {
-      addon_version            = "v1.21.1-eksbuild.1"
+      addon_version            = "v1.21.1-eksbuild.3"
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
@@ -107,7 +107,7 @@ module "eks" {
     }
 
     aws-ebs-csi-driver = {
-      addon_version            = "v1.54.0-eksbuild.1"
+      addon_version            = "v1.55.0-eksbuild.1"
       service_account_role_arn = module.ebs_csi_irsa_role.arn
       configuration_values = jsonencode({
         controller = {
@@ -149,7 +149,7 @@ module "eks" {
         ami_type                       = "AL2023_x86_64_STANDARD"
         instance_types                 = ["m5.large"]
         use_latest_ami_release_version = false
-        ami_release_version            = "1.34.2-20260120"
+        ami_release_version            = "1.35.0-20260129"
         enable_monitoring              = true
 
         min_size     = 2
@@ -174,7 +174,7 @@ module "eks" {
         ami_type                       = "AL2023_x86_64_NVIDIA"
         instance_types                 = ["p5.48xlarge"]
         use_latest_ami_release_version = false
-        ami_release_version            = "1.34.2-20260120"
+        ami_release_version            = "1.35.0-20260129"
         enable_monitoring              = true
 
         min_size     = 1
