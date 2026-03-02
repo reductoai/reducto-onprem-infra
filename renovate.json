@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "enabledManagers": [
+    "terraform"
+  ],
+  "extends": [
+    "config:recommended"
+  ],
+  "minimumReleaseAge": "30 days",
+  "packageRules": [
+    {
+      "groupName": "all minor and patch updates",
+      "groupSlug": "all-minor-patch",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ]
+    }
+  ],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 5,
+  "rebaseWhen": "conflicted",
+  "schedule": [
+    "after 10pm on sunday"
+  ],
+  "timezone": "America/Los_Angeles",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security"
+    ],
+    "minimumReleaseAge": null,
+    "schedule": [
+      "at any time"
+    ]
+  }
+}
