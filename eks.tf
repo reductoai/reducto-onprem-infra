@@ -19,6 +19,8 @@ module "eks" {
     "scheduler",
   ]
 
+  cloudwatch_log_group_retention_in_days = 90
+
   addons = {
     coredns = {
       addon_version = "v1.13.1-eksbuild.1"
