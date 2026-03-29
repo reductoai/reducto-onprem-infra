@@ -59,6 +59,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="module_rds_sg"></a> [rds\_sg](#module\_rds\_sg) | terraform-aws-modules/security-group/aws | 5.2.0 |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | 6.6.0 |
 | <a name="module_vpc_cni_irsa_role"></a> [vpc\_cni\_irsa\_role](#module\_vpc\_cni\_irsa\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts | v6.4.0 |
+| <a name="module_vpc_endpoints"></a> [vpc\_endpoints](#module\_vpc\_endpoints) | terraform-aws-modules/vpc/aws//modules/vpc-endpoints | 6.6.0 |
 
 ### Resources
 
@@ -74,12 +75,15 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [aws_s3_bucket_public_access_block.reducto_storage_public_access_block](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_secretsmanager_secret.superuser](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.superuser](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_security_group.vpc_endpoints](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group) | resource |
 | [aws_security_group_rule.allow_all_cluster_and_nodes_traffic](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.allow_all_cluster_and_nodes_traffic_ingress](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.allow_all_intra_node_traffic](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.allow_eks_cluster_access_from_vpc](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.webhook_admission_inbound](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.webhook_admission_outbound](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
+| [aws_vpc_security_group_egress_rule.vpc_endpoints_all](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/vpc_security_group_egress_rule) | resource |
+| [aws_vpc_security_group_ingress_rule.vpc_endpoints_all](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/vpc_security_group_ingress_rule) | resource |
 | [helm_release.aws_load_balancer_controller](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.cert_manager](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.datadog](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
