@@ -10,6 +10,8 @@ resource "kubectl_manifest" "monitoring_ns" {
     finalizers:
     - kubernetes
   YAML
+
+  depends_on = [module.eks]
 }
 
 resource "helm_release" "prometheus_crds" {

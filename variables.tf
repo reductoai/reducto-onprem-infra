@@ -10,6 +10,12 @@ variable "cluster_name" {
   default     = "reducto-ai"
 }
 
+variable "tags" {
+  description = "Tags applied to AWS resources, including organization-required cost, environment, and ownership tags"
+  type        = map(string)
+  default     = {}
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -64,6 +70,65 @@ variable "db_username" {
   type        = string
 }
 
+# Configuration for managed Redis-compatible queue/cache storage
+
+variable "enable_elasticache" {
+  description = "Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using Streaq or another Redis-backed feature."
+  type        = bool
+  default     = false
+}
+
+variable "elasticache_engine_version" {
+  description = "Valkey engine version for the ElastiCache replication group"
+  type        = string
+  default     = "8.2"
+}
+
+variable "elasticache_node_type" {
+  description = "Node type for the ElastiCache replication group"
+  type        = string
+  default     = "cache.t4g.small"
+}
+
+variable "elasticache_replica_count" {
+  description = "Number of ElastiCache read replicas; set to at least one for automatic failover and Multi-AZ"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.elasticache_replica_count >= 0 && var.elasticache_replica_count <= 5 && floor(var.elasticache_replica_count) == var.elasticache_replica_count
+    error_message = "elasticache_replica_count must be a whole number between 0 and 5."
+  }
+}
+
+variable "elasticache_port" {
+  description = "Port used by the ElastiCache replication group"
+  type        = number
+  default     = 6379
+
+  validation {
+    condition     = var.elasticache_port >= 1 && var.elasticache_port <= 65535
+    error_message = "elasticache_port must be between 1 and 65535."
+  }
+}
+
+variable "elasticache_snapshot_retention_limit" {
+  description = "Number of days ElastiCache snapshots are retained; set to zero to disable automatic snapshots"
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.elasticache_snapshot_retention_limit >= 0 && var.elasticache_snapshot_retention_limit <= 35
+    error_message = "elasticache_snapshot_retention_limit must be between 0 and 35."
+  }
+}
+
+variable "elasticache_apply_immediately" {
+  description = "Apply ElastiCache changes immediately instead of waiting for the maintenance window"
+  type        = bool
+  default     = false
+}
+
 variable "enable_reducto" {
   type        = bool
   default     = true
@@ -83,7 +148,7 @@ variable "reducto_helm_repo_password" {
 
 variable "reducto_helm_chart_version" {
   description = "Reducto Helm Chart version"
-  default     = "1.11.32"
+  default     = "1.12.2"
   type        = string
 }
 
