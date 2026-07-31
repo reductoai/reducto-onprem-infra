@@ -158,6 +158,17 @@ variable "reducto_helm_chart" {
   type        = string
 }
 
+variable "reducto_extra_values_files" {
+  description = "Paths to additional Helm values files layered last. Use this for deployment-specific workload settings such as Streaq."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for values_path in var.reducto_extra_values_files : can(file(values_path))])
+    error_message = "Every reducto_extra_values_files entry must be a readable file path."
+  }
+}
+
 variable "reducto_host" {
   description = "Full host DNS for Reducto (Example: reducto.mydomain.com)"
   type        = string

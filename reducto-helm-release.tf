@@ -42,11 +42,14 @@ resource "helm_release" "reducto" {
   wait    = false
   timeout = var.helm_release_timeout
 
-  values = [
-    file("values/reducto.yaml"),
-    var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
-    local.reducto_managed_values,
-  ]
+  values = concat(
+    [
+      file("values/reducto.yaml"),
+      var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
+      local.reducto_managed_values,
+    ],
+    [for values_path in var.reducto_extra_values_files : file(values_path)],
+  )
 
   depends_on = [
     module.eks,
