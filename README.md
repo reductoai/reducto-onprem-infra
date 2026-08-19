@@ -22,12 +22,53 @@ AUTH-protected, Multi-AZ ElastiCache replication group running Valkey. The
 stack passes its sensitive `rediss://` URL to the chart as both `REDIS_URL` and
 `ELASTICACHE_URL` and disables the chart's single-pod Redis deployment. Protect
 the Terraform state because it contains the generated AUTH token. Chart
-`1.12.2` keeps the new Streaq architecture disabled by default, so ElastiCache
-also remains opt-in until a Redis-backed feature is enabled.
+`1.12.6` keeps Streaq disabled by default (`streaqWorkerDefaults.enabled` is
+`false` and `streaqWorkers` is empty), so ElastiCache also remains opt-in until
+a Redis-backed feature is enabled. Chart `1.12.6` supports managed Redis TLS
+through the system trust store; no chart-specific CA mount is needed for
+ElastiCache's publicly rooted certificate.
 Use the `tags` input for account-required cost, environment, and ownership
 tags; these tags are also propagated to nodes launched dynamically by
 Karpenter and to the EKS managed node group's instances, network interfaces,
 and volumes.
+
+## Streaq bridge (chart 1.12.6)
+
+For the v1.12.6 → v1.13 migration, pin the chart, opt into managed Redis, and
+layer the worker topology through `reducto_extra_values_files`. Keep the legacy
+worker enabled during the bridge and start every rollout ratio at `0`; follow
+the migration runbook for the full drain and ramp procedure.
+
+```hcl
+reducto_helm_chart_version = "1.12.6"
+enable_elasticache         = true
+reducto_extra_values_files = ["streaq-bridge.yaml"]
+```
+
+`streaq-bridge.yaml`:
+
+```yaml
+env:
+  WORKER_PROVIDER: STREAQ_LOCAL
+  PARSE_STREAQ_TRAINABLE_ROLLOUT_RATIO: "0"
+  PARSE_STREAQ_NON_TRAINABLE_ROLLOUT_RATIO: "0"
+  STREAQ_CPU_WORKER_ROLLOUT_PCT: "0"
+  STREAQ_CPU_COMPLETION_TRAINABLE_ROLLOUT_PCT: "0"
+  STREAQ_CPU_COMPLETION_NON_TRAINABLE_ROLLOUT_PCT: "0"
+streaqWorkerDefaults:
+  enabled: true
+streaqWorkers:
+  io:
+    enabled: true
+    workerName: io
+    useFullImage: true
+  cpu:
+    enabled: true
+    workerName: cpu
+    useFullImage: true
+worker:
+  enabled: true
+```
 
 ## Upgrades
 
@@ -165,8 +206,9 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets CIDRs | `list(string)` | `[]` | no |
 | <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | List of public subnets CIDRs | `list(string)` | `[]` | no |
+| <a name="input_reducto_extra_values_files"></a> [reducto\_extra\_values\_files](#input\_reducto\_extra\_values\_files) | Paths to additional Helm values files layered last. Use this for deployment-specific workload settings such as Streaq. | `list(string)` | `[]` | no |
 | <a name="input_reducto_helm_chart"></a> [reducto\_helm\_chart](#input\_reducto\_helm\_chart) | Path to Helm Chart on OCI registry | `string` | `"oci://registry.reducto.ai/reducto-api/reducto"` | no |
-| <a name="input_reducto_helm_chart_version"></a> [reducto\_helm\_chart\_version](#input\_reducto\_helm\_chart\_version) | Reducto Helm Chart version | `string` | `"1.12.2"` | no |
+| <a name="input_reducto_helm_chart_version"></a> [reducto\_helm\_chart\_version](#input\_reducto\_helm\_chart\_version) | Reducto Helm Chart version | `string` | `"1.12.6"` | no |
 | <a name="input_reducto_helm_repo_password"></a> [reducto\_helm\_repo\_password](#input\_reducto\_helm\_repo\_password) | Password for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |
 | <a name="input_reducto_helm_repo_username"></a> [reducto\_helm\_repo\_username](#input\_reducto\_helm\_repo\_username) | Username for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |
 | <a name="input_reducto_host"></a> [reducto\_host](#input\_reducto\_host) | Full host DNS for Reducto (Example: reducto.mydomain.com) | `string` | n/a | yes |
