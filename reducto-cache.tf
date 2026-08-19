@@ -21,6 +21,18 @@ resource "aws_elasticache_subnet_group" "reducto" {
   subnet_ids = module.vpc.private_subnets
 }
 
+resource "aws_elasticache_parameter_group" "reducto" {
+  count = var.enable_elasticache ? 1 : 0
+
+  name   = "${var.cluster_name}-valkey8"
+  family = "valkey8"
+
+  parameter {
+    name  = "maxmemory-policy"
+    value = "noeviction"
+  }
+}
+
 resource "aws_security_group" "reducto_elasticache" {
   count = var.enable_elasticache ? 1 : 0
 
@@ -62,6 +74,7 @@ resource "aws_elasticache_replication_group" "reducto" {
   auth_token_update_strategy = "SET"
 
   subnet_group_name          = aws_elasticache_subnet_group.reducto[0].name
+  parameter_group_name       = aws_elasticache_parameter_group.reducto[0].name
   security_group_ids         = [aws_security_group.reducto_elasticache[0].id]
   snapshot_retention_limit   = var.elasticache_snapshot_retention_limit
   apply_immediately          = var.elasticache_apply_immediately

@@ -45,6 +45,9 @@ enable_elasticache         = true
 reducto_extra_values_files = ["streaq-bridge.yaml"]
 ```
 
+The CPU worker reserves 14 CPU and 26Gi; size the customer node pool to fit
+that reservation before enabling the bridge.
+
 `streaq-bridge.yaml`:
 
 ```yaml
@@ -55,17 +58,23 @@ env:
   STREAQ_CPU_WORKER_ROLLOUT_PCT: "0"
   STREAQ_CPU_COMPLETION_TRAINABLE_ROLLOUT_PCT: "0"
   STREAQ_CPU_COMPLETION_NON_TRAINABLE_ROLLOUT_PCT: "0"
-streaqWorkerDefaults:
-  enabled: true
 streaqWorkers:
   io:
     enabled: true
     workerName: io
-    useFullImage: true
   cpu:
     enabled: true
     workerName: cpu
     useFullImage: true
+    workerCount: 1
+    replicaCount: 1
+    kedaScaler: false
+    resources:
+      requests:
+        cpu: 14
+        memory: 26Gi
+      limits:
+        memory: 26Gi
 worker:
   enabled: true
 ```
@@ -119,6 +128,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | Name | Type |
 |------|------|
 | [aws_db_subnet_group.default](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/db_subnet_group) | resource |
+| [aws_elasticache_parameter_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_parameter_group) | resource |
 | [aws_elasticache_replication_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_replication_group) | resource |
 | [aws_elasticache_subnet_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_subnet_group) | resource |
 | [aws_iam_role.rds_enhanced_monitoring](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/iam_role) | resource |
