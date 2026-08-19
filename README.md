@@ -22,33 +22,33 @@ AUTH-protected, Multi-AZ ElastiCache replication group running Valkey. The
 stack passes its sensitive `rediss://` URL to the chart as both `REDIS_URL` and
 `ELASTICACHE_URL` and disables the chart's single-pod Redis deployment. Protect
 the Terraform state because it contains the generated AUTH token. Chart
-`1.12.6` keeps Streaq disabled by default (`streaqWorkerDefaults.enabled` is
+`1.12.6` keeps the optional queue workers disabled by default (`streaqWorkerDefaults.enabled` is
 `false` and `streaqWorkers` is empty), so ElastiCache also remains opt-in until
-a Redis-backed feature is enabled. Chart `1.12.6` supports managed Redis TLS
-through the system trust store; no chart-specific CA mount is needed for
-ElastiCache's publicly rooted certificate.
+a Redis-backed queue architecture is enabled. Chart `1.12.6` supports managed
+Redis TLS through the system trust store; no chart-specific CA mount is needed
+for ElastiCache's publicly rooted certificate.
 Use the `tags` input for account-required cost, environment, and ownership
 tags; these tags are also propagated to nodes launched dynamically by
 Karpenter and to the EKS managed node group's instances, network interfaces,
 and volumes.
 
-## Streaq bridge (chart 1.12.6)
+## Redis queue bridge (chart 1.12.6)
 
 For the v1.12.6 → v1.13 migration, pin the chart, opt into managed Redis, and
-layer the worker topology through `reducto_extra_values_files`. Keep the legacy
-worker enabled during the bridge and start every rollout ratio at `0`; follow
-the migration runbook for the full drain and ramp procedure.
+layer the queue worker topology through `reducto_extra_values_files`. Keep the
+legacy worker enabled during the bridge and start every rollout ratio at `0`;
+follow the migration runbook for the full drain and ramp procedure.
 
 ```hcl
 reducto_helm_chart_version = "1.12.6"
 enable_elasticache         = true
-reducto_extra_values_files = ["streaq-bridge.yaml"]
+reducto_extra_values_files = ["redis-queue-bridge.yaml"]
 ```
 
 The CPU worker reserves 14 CPU and 26Gi; size the customer node pool to fit
 that reservation before enabling the bridge.
 
-`streaq-bridge.yaml`:
+`redis-queue-bridge.yaml`:
 
 ```yaml
 env:
@@ -204,7 +204,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_elasticache_port"></a> [elasticache\_port](#input\_elasticache\_port) | Port used by the ElastiCache replication group | `number` | `6379` | no |
 | <a name="input_elasticache_replica_count"></a> [elasticache\_replica\_count](#input\_elasticache\_replica\_count) | Number of ElastiCache read replicas; set to at least one for automatic failover and Multi-AZ | `number` | `1` | no |
 | <a name="input_elasticache_snapshot_retention_limit"></a> [elasticache\_snapshot\_retention\_limit](#input\_elasticache\_snapshot\_retention\_limit) | Number of days ElastiCache snapshots are retained; set to zero to disable automatic snapshots | `number` | `7` | no |
-| <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using Streaq or another Redis-backed feature. | `bool` | `false` | no |
+| <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the Redis-backed queue architecture or another Redis-backed feature. | `bool` | `false` | no |
 | <a name="input_enable_gpu_managed_node_group"></a> [enable\_gpu\_managed\_node\_group](#input\_enable\_gpu\_managed\_node\_group) | Whether to create the GPU managed node group (system\_gpu) for GPU workloads | `bool` | `false` | no |
 | <a name="input_enable_nvidia_device_plugin"></a> [enable\_nvidia\_device\_plugin](#input\_enable\_nvidia\_device\_plugin) | Whether to install the NVIDIA device plugin for GPU support | `bool` | `false` | no |
 | <a name="input_enable_otel_collector"></a> [enable\_otel\_collector](#input\_enable\_otel\_collector) | Whether to deploy the OpenTelemetry Collector on the cluster | `bool` | `false` | no |
@@ -216,7 +216,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets CIDRs | `list(string)` | `[]` | no |
 | <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | List of public subnets CIDRs | `list(string)` | `[]` | no |
-| <a name="input_reducto_extra_values_files"></a> [reducto\_extra\_values\_files](#input\_reducto\_extra\_values\_files) | Paths to additional Helm values files layered last. Use this for deployment-specific workload settings such as Streaq. | `list(string)` | `[]` | no |
+| <a name="input_reducto_extra_values_files"></a> [reducto\_extra\_values\_files](#input\_reducto\_extra\_values\_files) | Paths to additional Helm values files layered last. Use this for deployment-specific queue worker settings. | `list(string)` | `[]` | no |
 | <a name="input_reducto_helm_chart"></a> [reducto\_helm\_chart](#input\_reducto\_helm\_chart) | Path to Helm Chart on OCI registry | `string` | `"oci://registry.reducto.ai/reducto-api/reducto"` | no |
 | <a name="input_reducto_helm_chart_version"></a> [reducto\_helm\_chart\_version](#input\_reducto\_helm\_chart\_version) | Reducto Helm Chart version | `string` | `"1.12.6"` | no |
 | <a name="input_reducto_helm_repo_password"></a> [reducto\_helm\_repo\_password](#input\_reducto\_helm\_repo\_password) | Password for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |

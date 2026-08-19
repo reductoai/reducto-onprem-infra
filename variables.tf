@@ -73,7 +73,7 @@ variable "db_username" {
 # Configuration for managed Redis-compatible queue/cache storage
 
 variable "enable_elasticache" {
-  description = "Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using Streaq or another Redis-backed feature."
+  description = "Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the Redis-backed queue architecture or another Redis-backed feature."
   type        = bool
   default     = false
 }
@@ -159,7 +159,7 @@ variable "reducto_helm_chart" {
 }
 
 variable "reducto_extra_values_files" {
-  description = "Paths to additional Helm values files layered last. Use this for deployment-specific workload settings such as Streaq."
+  description = "Paths to additional Helm values files layered last. Use this for deployment-specific queue worker settings."
   type        = list(string)
   default     = []
 
