@@ -24,7 +24,7 @@ stack passes its sensitive `rediss://` URL to the chart as both `REDIS_URL` and
 the Terraform state because it contains the generated AUTH token. Chart
 `1.12.6` keeps the optional queue workers disabled by default (`streaqWorkerDefaults.enabled` is
 `false` and `streaqWorkers` is empty), so ElastiCache also remains opt-in until
-a Redis-backed queue architecture is enabled. Chart `1.12.6` supports managed
+the New Reducto Architecture is enabled. Chart `1.12.6` supports managed
 Redis TLS through the system trust store; no chart-specific CA mount is needed
 for ElastiCache's publicly rooted certificate.
 Use the `tags` input for account-required cost, environment, and ownership
@@ -32,7 +32,7 @@ tags; these tags are also propagated to nodes launched dynamically by
 Karpenter and to the EKS managed node group's instances, network interfaces,
 and volumes.
 
-## Redis queue bridge (chart 1.12.6)
+## New Reducto Architecture bridge (chart 1.12.6)
 
 For the v1.12.6 → v1.13 migration, pin the chart, opt into managed Redis, and
 layer the queue worker topology through `reducto_extra_values_files`. Keep the
@@ -204,7 +204,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_elasticache_port"></a> [elasticache\_port](#input\_elasticache\_port) | Port used by the ElastiCache replication group | `number` | `6379` | no |
 | <a name="input_elasticache_replica_count"></a> [elasticache\_replica\_count](#input\_elasticache\_replica\_count) | Number of ElastiCache read replicas; set to at least one for automatic failover and Multi-AZ | `number` | `1` | no |
 | <a name="input_elasticache_snapshot_retention_limit"></a> [elasticache\_snapshot\_retention\_limit](#input\_elasticache\_snapshot\_retention\_limit) | Number of days ElastiCache snapshots are retained; set to zero to disable automatic snapshots | `number` | `7` | no |
-| <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the Redis-backed queue architecture or another Redis-backed feature. | `bool` | `false` | no |
+| <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the New Reducto Architecture or another Redis-backed feature. | `bool` | `false` | no |
 | <a name="input_enable_gpu_managed_node_group"></a> [enable\_gpu\_managed\_node\_group](#input\_enable\_gpu\_managed\_node\_group) | Whether to create the GPU managed node group (system\_gpu) for GPU workloads | `bool` | `false` | no |
 | <a name="input_enable_nvidia_device_plugin"></a> [enable\_nvidia\_device\_plugin](#input\_enable\_nvidia\_device\_plugin) | Whether to install the NVIDIA device plugin for GPU support | `bool` | `false` | no |
 | <a name="input_enable_otel_collector"></a> [enable\_otel\_collector](#input\_enable\_otel\_collector) | Whether to deploy the OpenTelemetry Collector on the cluster | `bool` | `false` | no |

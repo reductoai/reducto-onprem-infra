@@ -73,7 +73,7 @@ variable "db_username" {
 # Configuration for managed Redis-compatible queue/cache storage
 
 variable "enable_elasticache" {
-  description = "Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the Redis-backed queue architecture or another Redis-backed feature."
+  description = "Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the New Reducto Architecture or another Redis-backed feature."
   type        = bool
   default     = false
 }
