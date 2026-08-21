@@ -48,6 +48,14 @@ resource "aws_security_group" "reducto_elasticache" {
     security_groups = [module.eks.node_security_group_id]
   }
 
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name = "${var.cluster_name}-cache"
   }
@@ -56,8 +64,14 @@ resource "aws_security_group" "reducto_elasticache" {
 resource "aws_elasticache_replication_group" "reducto" {
   count = var.enable_elasticache ? 1 : 0
 
-  replication_group_id = substr("reducto-${lower(replace(var.cluster_name, "/[^a-z0-9-]/", "-"))}", 0, 40)
-  description          = "Managed Valkey for ${var.cluster_name}"
+  replication_group_id = trimsuffix(
+    substr(
+      "reducto-${trim(lower(replace(var.cluster_name, "/[^a-z0-9]+/", "-")), "-")}",
+      0, 40
+    ),
+    "-"
+  )
+  description = "Managed Valkey for ${var.cluster_name}"
 
   engine         = "valkey"
   engine_version = var.elasticache_engine_version
