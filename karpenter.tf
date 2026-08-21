@@ -66,7 +66,6 @@ resource "helm_release" "karpenter" {
 }
 
 resource "kubectl_manifest" "karpenter_node_class" {
-  wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.k8s.aws/v1
     kind: EC2NodeClass
@@ -97,7 +96,6 @@ resource "kubectl_manifest" "karpenter_node_class" {
 }
 
 resource "kubectl_manifest" "karpenter_node_pool" {
-  wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.sh/v1
     kind: NodePool
