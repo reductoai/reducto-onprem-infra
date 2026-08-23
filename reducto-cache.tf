@@ -1,4 +1,9 @@
 locals {
+  # Replication-group IDs accept lowercase alphanumerics and single hyphens.
+  # Normalize before truncating so uppercase and repeated punctuation cannot
+  # produce an invalid identifier or leave a trailing hyphen.
+  elasticache_id_name = trim(replace(lower(var.cluster_name), "/[^a-z0-9]+/", "-"), "-")
+
   elasticache_url = var.enable_elasticache ? sensitive(format(
     "rediss://:%s@%s:%d",
     urlencode(random_password.elasticache_auth_token[0].result),
@@ -48,12 +53,23 @@ resource "aws_security_group" "reducto_elasticache" {
     security_groups = [module.eks.node_security_group_id]
   }
 
+  ingress {
+    description = "Valkey replication between cache nodes"
+    from_port   = var.elasticache_port
+    to_port     = var.elasticache_port
+    protocol    = "tcp"
+    self        = true
+  }
+
+  # Client responses are stateful and do not need a separate rule. This
+  # self-only egress permits a replica to initiate replication traffic without
+  # granting the managed cache arbitrary outbound access.
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description = "Valkey replication between cache nodes"
+    from_port   = var.elasticache_port
+    to_port     = var.elasticache_port
+    protocol    = "tcp"
+    self        = true
   }
 
   tags = {
@@ -64,14 +80,8 @@ resource "aws_security_group" "reducto_elasticache" {
 resource "aws_elasticache_replication_group" "reducto" {
   count = var.enable_elasticache ? 1 : 0
 
-  replication_group_id = trimsuffix(
-    substr(
-      "reducto-${trim(lower(replace(var.cluster_name, "/[^a-z0-9]+/", "-")), "-")}",
-      0, 40
-    ),
-    "-"
-  )
-  description = "Managed Valkey for ${var.cluster_name}"
+  replication_group_id = trim(substr("reducto-${local.elasticache_id_name}", 0, 40), "-")
+  description          = "Managed Valkey for ${var.cluster_name}"
 
   engine         = "valkey"
   engine_version = var.elasticache_engine_version
