@@ -61,15 +61,17 @@ resource "aws_security_group" "reducto_elasticache" {
     self        = true
   }
 
-  # Client responses are stateful and do not need a separate rule. This
-  # self-only egress permits a replica to initiate replication traffic without
-  # granting the managed cache arbitrary outbound access.
+  # Allow all outbound so cache nodes can reach the telemetry/monitoring
+  # endpoints they report to, since ElastiCache doesn't document a fixed set
+  # of destinations for that traffic.
+  # TODO: narrow this to the specific telemetry destinations once we've
+  # confirmed what those are and that metrics are flowing correctly.
   egress {
-    description = "Valkey replication between cache nodes"
-    from_port   = var.elasticache_port
-    to_port     = var.elasticache_port
-    protocol    = "tcp"
-    self        = true
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
