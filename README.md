@@ -9,12 +9,75 @@ Install Reducto on EKS using Terraform.
 The project creates [Helm Release](./reducto-helm-release.tf) for Reducto on EKS in `reducto` namespace. And creates following required dependencies:
 1. [RDS instance](./reducto-db.tf)
 2. [S3 bucket](./reducto-bucket.tf)
-3. [Keda](./keda.tf) (for autoscaling of Reducto workers in-cluster)
-4. Auto scaling of cluster nodes ([Karpenter](./karpenter.tf) is configured, however you can use any cluster autoscaling tool)
-5. [AWS Load balancer controller](./aws-load-balancer-controller.tf) or [Ingress Nginx](./ingress-nginx-controller.tf) (however you can use any ingress controller)
+3. [ElastiCache for Valkey](./reducto-cache.tf) for Redis-compatible queue and cache storage
+4. [Keda](./keda.tf) (for autoscaling of Reducto workers in-cluster)
+5. Auto scaling of cluster nodes ([Karpenter](./karpenter.tf) is configured, however you can use any cluster autoscaling tool)
+6. [AWS Load balancer controller](./aws-load-balancer-controller.tf) or [Ingress Nginx](./ingress-nginx-controller.tf) (however you can use any ingress controller)
 
 This project demonstrates fully working cluster that's needed to run Reducto.
 Cloudflare is not a requirement, however its used here to setup TLS along with cert-manager.
+
+Set `enable_elasticache = true` to provision a private, TLS-enabled,
+AUTH-protected, Multi-AZ ElastiCache replication group running Valkey. The
+stack passes its sensitive `rediss://` URL to the chart as both `REDIS_URL` and
+`ELASTICACHE_URL` and disables the chart's single-pod Redis deployment. Protect
+the Terraform state because it contains the generated AUTH token. Chart
+`1.12.6` keeps the optional queue workers disabled by default (`streaqWorkerDefaults.enabled` is
+`false` and `streaqWorkers` is empty), so ElastiCache also remains opt-in until
+the New Reducto Architecture is enabled. Chart `1.12.6` supports managed
+Redis TLS through the system trust store; no chart-specific CA mount is needed
+for ElastiCache's publicly rooted certificate.
+Use the `tags` input for account-required cost, environment, and ownership
+tags; these tags are also propagated to nodes launched dynamically by
+Karpenter and to the EKS managed node group's instances, network interfaces,
+and volumes.
+
+## New Reducto Architecture bridge (chart 1.12.6)
+
+For the v1.12.6 → v1.13 migration, pin the chart, opt into managed Redis, and
+layer the queue worker topology through `reducto_extra_values_files`. Keep the
+legacy worker enabled during the bridge and start every rollout ratio at `0`;
+follow the migration runbook for the full drain and ramp procedure.
+
+```hcl
+reducto_helm_chart_version = "1.12.6"
+enable_elasticache         = true
+reducto_extra_values_files = ["redis-queue-bridge.yaml"]
+```
+
+The CPU worker reserves 14 CPU and 26Gi; size the customer node pool to fit
+that reservation before enabling the bridge.
+
+`redis-queue-bridge.yaml`:
+
+```yaml
+env:
+  WORKER_PROVIDER: STREAQ_LOCAL
+  PARSE_STREAQ_TRAINABLE_ROLLOUT_RATIO: "0"
+  PARSE_STREAQ_NON_TRAINABLE_ROLLOUT_RATIO: "0"
+  STREAQ_CPU_WORKER_ROLLOUT_PCT: "0"
+  STREAQ_CPU_COMPLETION_TRAINABLE_ROLLOUT_PCT: "0"
+  STREAQ_CPU_COMPLETION_NON_TRAINABLE_ROLLOUT_PCT: "0"
+streaqWorkers:
+  io:
+    enabled: true
+    workerName: io
+  cpu:
+    enabled: true
+    workerName: cpu
+    useFullImage: true
+    workerCount: 1
+    replicaCount: 1
+    kedaScaler: false
+    resources:
+      requests:
+        cpu: 14
+        memory: 26Gi
+      limits:
+        memory: 26Gi
+worker:
+  enabled: true
+```
 
 ## Upgrades
 
@@ -65,6 +128,9 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | Name | Type |
 |------|------|
 | [aws_db_subnet_group.default](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/db_subnet_group) | resource |
+| [aws_elasticache_parameter_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_parameter_group) | resource |
+| [aws_elasticache_replication_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_replication_group) | resource |
+| [aws_elasticache_subnet_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_subnet_group) | resource |
 | [aws_iam_role.rds_enhanced_monitoring](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/iam_role_policy) | resource |
@@ -74,6 +140,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [aws_s3_bucket_public_access_block.reducto_storage_public_access_block](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_secretsmanager_secret.superuser](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.superuser](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_security_group.reducto_elasticache](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group) | resource |
 | [aws_security_group_rule.allow_all_cluster_and_nodes_traffic](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.allow_all_cluster_and_nodes_traffic_ingress](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
 | [aws_security_group_rule.allow_all_intra_node_traffic](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/security_group_rule) | resource |
@@ -109,9 +176,9 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [kubectl_manifest.telegraf_sm](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubernetes_secret_v1.hf_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.0.1/docs/resources/secret_v1) | resource |
 | [random_password.db_password](https://registry.terraform.io/providers/hashicorp/random/3.8.0/docs/resources/password) | resource |
+| [random_password.elasticache_auth_token](https://registry.terraform.io/providers/hashicorp/random/3.8.0/docs/resources/password) | resource |
 | [random_string.secret_suffix](https://registry.terraform.io/providers/hashicorp/random/3.8.0/docs/resources/string) | resource |
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/availability_zones) | data source |
-| [aws_eks_cluster_auth.eks](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/eks_cluster_auth) | data source |
 | [aws_iam_policy_document.rds_enhanced_monitoring](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/iam_policy_document) | data source |
 | [kubectl_filename_list.cluster_manifests](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/filename_list) | data source |
@@ -131,6 +198,13 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_db_instance_class"></a> [db\_instance\_class](#input\_db\_instance\_class) | Instance class for Reducto Postgres database | `string` | `"db.t4g.medium"` | no |
 | <a name="input_db_multi_az"></a> [db\_multi\_az](#input\_db\_multi\_az) | Enable Multi-AZ deployment for RDS database for high availability | `bool` | `true` | no |
 | <a name="input_db_username"></a> [db\_username](#input\_db\_username) | Postgres DB username | `string` | `"reducto"` | no |
+| <a name="input_elasticache_apply_immediately"></a> [elasticache\_apply\_immediately](#input\_elasticache\_apply\_immediately) | Apply ElastiCache changes immediately instead of waiting for the maintenance window | `bool` | `false` | no |
+| <a name="input_elasticache_engine_version"></a> [elasticache\_engine\_version](#input\_elasticache\_engine\_version) | Valkey engine version for the ElastiCache replication group | `string` | `"8.2"` | no |
+| <a name="input_elasticache_node_type"></a> [elasticache\_node\_type](#input\_elasticache\_node\_type) | Node type for the ElastiCache replication group | `string` | `"cache.t4g.small"` | no |
+| <a name="input_elasticache_port"></a> [elasticache\_port](#input\_elasticache\_port) | Port used by the ElastiCache replication group | `number` | `6379` | no |
+| <a name="input_elasticache_replica_count"></a> [elasticache\_replica\_count](#input\_elasticache\_replica\_count) | Number of ElastiCache read replicas; set to at least one for automatic failover and Multi-AZ | `number` | `1` | no |
+| <a name="input_elasticache_snapshot_retention_limit"></a> [elasticache\_snapshot\_retention\_limit](#input\_elasticache\_snapshot\_retention\_limit) | Number of days ElastiCache snapshots are retained; set to zero to disable automatic snapshots | `number` | `7` | no |
+| <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the New Reducto Architecture or another Redis-backed feature. | `bool` | `false` | no |
 | <a name="input_enable_gpu_managed_node_group"></a> [enable\_gpu\_managed\_node\_group](#input\_enable\_gpu\_managed\_node\_group) | Whether to create the GPU managed node group (system\_gpu) for GPU workloads | `bool` | `false` | no |
 | <a name="input_enable_nvidia_device_plugin"></a> [enable\_nvidia\_device\_plugin](#input\_enable\_nvidia\_device\_plugin) | Whether to install the NVIDIA device plugin for GPU support | `bool` | `false` | no |
 | <a name="input_enable_otel_collector"></a> [enable\_otel\_collector](#input\_enable\_otel\_collector) | Whether to deploy the OpenTelemetry Collector on the cluster | `bool` | `false` | no |
@@ -142,13 +216,15 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets CIDRs | `list(string)` | `[]` | no |
 | <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | List of public subnets CIDRs | `list(string)` | `[]` | no |
+| <a name="input_reducto_extra_values_files"></a> [reducto\_extra\_values\_files](#input\_reducto\_extra\_values\_files) | Paths to additional Helm values files layered last. Use this for deployment-specific queue worker settings. | `list(string)` | `[]` | no |
 | <a name="input_reducto_helm_chart"></a> [reducto\_helm\_chart](#input\_reducto\_helm\_chart) | Path to Helm Chart on OCI registry | `string` | `"oci://registry.reducto.ai/reducto-api/reducto"` | no |
-| <a name="input_reducto_helm_chart_version"></a> [reducto\_helm\_chart\_version](#input\_reducto\_helm\_chart\_version) | Reducto Helm Chart version | `string` | `"1.11.32"` | no |
+| <a name="input_reducto_helm_chart_version"></a> [reducto\_helm\_chart\_version](#input\_reducto\_helm\_chart\_version) | Reducto Helm Chart version | `string` | `"1.12.6"` | no |
 | <a name="input_reducto_helm_repo_password"></a> [reducto\_helm\_repo\_password](#input\_reducto\_helm\_repo\_password) | Password for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |
 | <a name="input_reducto_helm_repo_username"></a> [reducto\_helm\_repo\_username](#input\_reducto\_helm\_repo\_username) | Username for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |
 | <a name="input_reducto_host"></a> [reducto\_host](#input\_reducto\_host) | Full host DNS for Reducto (Example: reducto.mydomain.com) | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region where resources will be created | `string` | `"us-east-1"` | no |
 | <a name="input_slack_webhook_url"></a> [slack\_webhook\_url](#input\_slack\_webhook\_url) | Slack Webhook URL for Alertmanager | `string` | n/a | yes |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to AWS resources, including organization-required cost, environment, and ownership tags | `map(string)` | `{}` | no |
 | <a name="input_vllm_stack_hf_token"></a> [vllm\_stack\_hf\_token](#input\_vllm\_stack\_hf\_token) | Hugging Face API token used by the vLLM stack for model access | `string` | `""` | no |
 | <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | CIDR block for the VPC | `string` | `"10.125.0.0/16"` | no |
 
@@ -165,6 +241,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="output_db_instance_name"></a> [db\_instance\_name](#output\_db\_instance\_name) | Name of the RDS database |
 | <a name="output_db_proxy_arn"></a> [db\_proxy\_arn](#output\_db\_proxy\_arn) | ARN of the RDS Proxy |
 | <a name="output_db_proxy_endpoint"></a> [db\_proxy\_endpoint](#output\_db\_proxy\_endpoint) | Connection endpoint for the RDS Proxy |
+| <a name="output_elasticache_primary_endpoint"></a> [elasticache\_primary\_endpoint](#output\_elasticache\_primary\_endpoint) | Primary endpoint for the managed Valkey replication group |
 | <a name="output_oidc_provider_arn"></a> [oidc\_provider\_arn](#output\_oidc\_provider\_arn) | ARN of the OIDC Provider for EKS |
 | <a name="output_private_subnets"></a> [private\_subnets](#output\_private\_subnets) | List of IDs of private subnets |
 | <a name="output_public_subnets"></a> [public\_subnets](#output\_public\_subnets) | List of IDs of public subnets |

@@ -67,6 +67,12 @@ output "db_proxy_arn" {
   value       = module.rds_proxy.proxy_arn
 }
 
+# ElastiCache Outputs
+output "elasticache_primary_endpoint" {
+  description = "Primary endpoint for the managed Valkey replication group"
+  value       = var.enable_elasticache ? aws_elasticache_replication_group.reducto[0].primary_endpoint_address : null
+}
+
 # S3 Storage Outputs
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for Reducto storage"

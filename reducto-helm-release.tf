@@ -1,3 +1,33 @@
+locals {
+  reducto_managed_values = yamlencode(merge(
+    {
+      ingress = {
+        host = var.reducto_host
+      }
+      serviceAccount = {
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.reducto.arn
+        }
+      }
+      env = merge(
+        {
+          DATABASE_URL = local.pooled_database_url
+          BUCKET       = aws_s3_bucket.reducto_storage.bucket
+        },
+        var.enable_elasticache ? {
+          REDIS_URL       = local.elasticache_url
+          ELASTICACHE_URL = local.elasticache_url
+        } : {},
+      )
+    },
+    var.enable_elasticache ? {
+      redis = {
+        enabled = false
+      }
+    } : {},
+  ))
+}
+
 resource "helm_release" "reducto" {
   count            = var.enable_reducto ? 1 : 0
   namespace        = "reducto"
@@ -12,20 +42,14 @@ resource "helm_release" "reducto" {
   wait    = false
   timeout = var.helm_release_timeout
 
-  values = [
-    file("values/reducto.yaml"),
-    var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
-    <<-EOT
-    ingress:
-      host: ${var.reducto_host}
-    serviceAccount:
-      annotations:
-        eks.amazonaws.com/role-arn: ${aws_iam_role.reducto.arn}
-    env:
-      DATABASE_URL: ${local.pooled_database_url}
-      BUCKET: ${aws_s3_bucket.reducto_storage.bucket}
-    EOT
-  ]
+  values = concat(
+    [
+      file("values/reducto.yaml"),
+      var.datadog_api_key != "" ? yamlencode(local.otel_env_vars) : "",
+      local.reducto_managed_values,
+    ],
+    [for values_path in var.reducto_extra_values_files : file(values_path)],
+  )
 
   depends_on = [
     module.eks,
@@ -36,5 +60,6 @@ resource "helm_release" "reducto" {
     helm_release.karpenter,
     helm_release.keda,
     helm_release.cert_manager,
+    aws_elasticache_replication_group.reducto,
   ]
 }

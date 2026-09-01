@@ -20,6 +20,8 @@ resource "helm_release" "karpenter-crd" {
   version    = "1.8.3"
   wait       = false
   timeout    = var.helm_release_timeout
+
+  depends_on = [module.eks]
 }
 
 resource "helm_release" "karpenter" {
@@ -58,11 +60,13 @@ resource "helm_release" "karpenter" {
   ]
   depends_on = [
     helm_release.karpenter-crd,
-    module.karpenter
+    helm_release.prometheus_crds,
+    module.karpenter,
   ]
 }
 
 resource "kubectl_manifest" "karpenter_node_class" {
+  wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.k8s.aws/v1
     kind: EC2NodeClass
@@ -85,16 +89,15 @@ resource "kubectl_manifest" "karpenter_node_class" {
       securityGroupSelectorTerms:
         - tags:
             karpenter.sh/discovery: ${var.cluster_name}
-      tags:
-        karpenter.sh/discovery: ${var.cluster_name}
+      tags: ${jsonencode(merge(var.tags, { "karpenter.sh/discovery" = var.cluster_name }))}
   YAML
 
-  depends_on = [
-    helm_release.karpenter
-  ]
+  # Keep VPC/NAT egress until Karpenter finalizers terminate dynamic nodes.
+  depends_on = [helm_release.karpenter, module.vpc]
 }
 
 resource "kubectl_manifest" "karpenter_node_pool" {
+  wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.sh/v1
     kind: NodePool
@@ -136,6 +139,7 @@ resource "kubectl_manifest" "karpenter_node_pool" {
   YAML
 
   depends_on = [
-    kubectl_manifest.karpenter_node_class
+    kubectl_manifest.karpenter_node_class,
+    module.vpc,
   ]
 }
