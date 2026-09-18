@@ -263,3 +263,72 @@ variable "helm_release_timeout" {
   type        = number
   default     = 900 # 15 minutes
 }
+
+# Configuration for the Agent Sandbox substrate (gVisor-isolated sandbox pods,
+# Kyverno enforcement, Envoy Gateway egress). See agent-sandbox.tf, gvisor.tf,
+# kyverno.tf, pi-egress.tf. Off by default so it has zero effect on any other
+# use of this repo.
+
+variable "enable_agent_sandbox" {
+  type        = bool
+  default     = false
+  description = "Whether to install the Agent Sandbox controller/CRDs, gVisor RuntimeClass + sandbox NodePool, Kyverno, and the Pi egress gateway substrate"
+
+  validation {
+    condition     = !var.enable_agent_sandbox || var.enable_kyverno
+    error_message = "enable_agent_sandbox requires enable_kyverno = true (require-sandbox-gvisor is a Kyverno policy)."
+  }
+}
+
+variable "enable_kyverno" {
+  type        = bool
+  default     = false
+  description = "Whether to install Kyverno and its cluster policies"
+}
+
+variable "kyverno_chart_version" {
+  type        = string
+  default     = "3.8.2"
+  description = "Kyverno Helm chart version"
+}
+
+variable "agent_sandbox_write_namespaces" {
+  type        = list(string)
+  default     = ["agent-sandbox-system", "reducto-pi-sandbox"]
+  description = "Namespaces the agent-sandbox controller is allowed to create/update pods, PVCs, services, and network policies in. Must include agent-sandbox-system."
+
+  validation {
+    condition     = contains(var.agent_sandbox_write_namespaces, "agent-sandbox-system")
+    error_message = "agent_sandbox_write_namespaces must include \"agent-sandbox-system\"."
+  }
+}
+
+variable "pi_sandbox_namespace" {
+  type        = string
+  default     = "reducto-pi-sandbox"
+  description = "Namespace where sandbox runtime pods (SandboxClaims) are created"
+}
+
+variable "pi_sandbox_client_namespace" {
+  type        = string
+  default     = "reducto-pi-sandbox-client"
+  description = "Namespace whose workloads are allowed to reach the sandbox runtime port; created if it doesn't already exist"
+}
+
+variable "pi_egress_namespace" {
+  type        = string
+  default     = "reducto-pi-egress"
+  description = "Namespace containing the Envoy data plane and edge Gateway/routes for the Pi egress stack"
+}
+
+variable "pi_egress_controller_namespace" {
+  type        = string
+  default     = "reducto-pi-egress-system"
+  description = "Namespace containing the Envoy Gateway control plane for the Pi egress stack"
+}
+
+variable "envoy_gateway_chart_version" {
+  type        = string
+  default     = "v1.8.1"
+  description = "Envoy Gateway Helm chart version (gateway-helm, oci://docker.io/envoyproxy)"
+}

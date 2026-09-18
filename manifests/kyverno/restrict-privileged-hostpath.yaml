@@ -1,0 +1,63 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-privileged-hostpath
+  annotations:
+    policies.kyverno.io/title: Enforce PSS baseline (node-escape backstop)
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: >-
+      Admission backstop for the node-root / self-respawning-fleet vector:
+      enforces the full Pod Security Standards baseline profile on every Pod
+      outside the system DaemonSet namespaces, via Kyverno's native podSecurity
+      subrule (the upstream Pod Security Admission library). Baseline blocks
+      privileged containers, hostPath volumes, host namespaces, hostPort, and
+      capabilities beyond NET_BIND_SERVICE — including when injected through the
+      pods/ephemeralcontainers subresource (kubectl debug), which the PSA
+      library evaluates natively. Independent of the PSS namespace labels and of
+      RBAC, so even a harvested controller token with cluster-wide pods/create
+      cannot create a node-escape pod.
+spec:
+  validationFailureAction: Enforce
+  # background:false — this is an admission control; the KyvernoNodeEscapePodBlocked
+  # alert counts kyverno_policy_results_total{rule_result="fail"}, and background
+  # scans re-emit `fail` for every grandfathered violator each cycle, which would
+  # pin the alert permanently. Admission denials are the signal we want.
+  background: false
+  rules:
+    - name: baseline
+      match:
+        any:
+          - resources:
+              # Pod/ephemeralcontainers listed explicitly so the generated webhook
+              # registers for the subresource — `kubectl debug` PATCHes
+              # ephemeralcontainers on a running pod, which bare `Pod` (CREATE)
+              # does not intercept. NOTE: the offline `kyverno test` fixtures are
+              # plain Pod CREATEs with spec.ephemeralContainers inlined (PSA
+              # evaluates those anyway), so they do NOT prove the subresource path
+              # — MUST verify live on staging that the generated
+              # ValidatingWebhookConfiguration lists pods/ephemeralcontainers and
+              # that a real `kubectl debug --profile=sysadmin` is denied.
+              kinds: [Pod, Pod/ephemeralcontainers]
+      exclude:
+        any:
+          - resources:
+              # The only namespaces that legitimately run privileged / hostPath /
+              # host-namespace DaemonSets (2026-07-29 fleet survey).
+              namespaces: [kube-system, monitoring, amazon-guardduty]
+      validate:
+        # Deny a pre-existing violator on its next write instead of grandfathering
+        # it forever — a pod admitted during a fail-open Kyverno outage must not
+        # stay exempt (matches the staging-DB guardrail precedent).
+        allowExistingViolations: false
+        podSecurity:
+          level: baseline
+          # NOT pinned to var.pss_version: the podSecurity subrule is evaluated by
+          # Kyverno's bundled PSA library, which lags the API server. Pinning a
+          # version newer than the bundled library (e.g. v1.35) is rejected by the
+          # subrule's CRD schema — a loud failure at `terragrunt apply`, not a
+          # silent no-op. "latest" tracks whatever the bundled library ships (≤
+          # v1.32 on the current Kyverno); baseline controls are unchanged across
+          # v1.25+, so the effective coverage matches the v1.35 namespace labels.
+          # Trade-off: "latest" follows the bundled library on a future chart bump.
+          version: latest

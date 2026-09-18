@@ -143,3 +143,147 @@ resource "kubectl_manifest" "karpenter_node_pool" {
     module.vpc,
   ]
 }
+
+# Dedicated, tainted node pool for gVisor-isolated agent-sandbox workloads
+# (see gvisor.tf / agent-sandbox.tf). userData installs runsc + registers the
+# containerd runtime handler at boot via a nodeadm NodeConfig merge, so runsc
+# is present before the first pod schedules — no DaemonSet, no restart race.
+# Requirements/taint/disruption mirror the reducto-sandbox NodePool already
+# proven on staging-2 (see plan notes): on-demand only (untrusted-code
+# isolation nodes should not be spot-interruptible mid-task), nitro c/m/r
+# 2-31 vCPU, generation >= 7.
+resource "kubectl_manifest" "karpenter_sandbox_node_class" {
+  count     = var.enable_agent_sandbox ? 1 : 0
+  wait      = true
+  yaml_body = <<-YAML
+    apiVersion: karpenter.k8s.aws/v1
+    kind: EC2NodeClass
+    metadata:
+      name: reducto-sandbox
+    spec:
+      amiSelectorTerms:
+      - alias: al2023@v20260120
+      blockDeviceMappings:
+        - deviceName: /dev/xvda
+          ebs:
+            volumeSize: 150Gi
+            volumeType: gp3
+            encrypted: true
+      role: ${module.karpenter.node_iam_role_name}
+      detailedMonitoring: true
+      subnetSelectorTerms:
+        - tags:
+            karpenter.sh/discovery: ${var.cluster_name}
+      securityGroupSelectorTerms:
+        - tags:
+            karpenter.sh/discovery: ${var.cluster_name}
+      tags: ${jsonencode(merge(var.tags, { "karpenter.sh/discovery" = var.cluster_name }))}
+      userData: |
+        MIME-Version: 1.0
+        Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+        --BOUNDARY
+        Content-Type: text/x-shellscript; charset="us-ascii"
+
+        #!/bin/bash
+        # Install gVisor (runsc) from the upstream release channel before
+        # containerd starts, so the runsc runtime handler registered by the
+        # NodeConfig below is backed by real binaries at first boot.
+        set -euo pipefail
+        REL="20260622"
+        ARCH=$(uname -m)
+        GCS_PREFIX="https://storage.googleapis.com/gvisor/releases/release/$${REL}/$${ARCH}"
+        for f in runsc containerd-shim-runsc-v1; do
+          curl -sSfL --retry 3 --max-redirs 5 -o "/usr/local/bin/$${f}" "$${GCS_PREFIX}/$${f}"
+          curl -sSfL --retry 3 --max-redirs 5 -o "/tmp/$${f}.sha512" "$${GCS_PREFIX}/$${f}.sha512"
+          sed "s| .*| /usr/local/bin/$${f}|" "/tmp/$${f}.sha512" | sha512sum -c -
+          chmod 0755 "/usr/local/bin/$${f}"
+          rm -f "/tmp/$${f}.sha512"
+        done
+        logger -t gvisor-runsc-install "release=$${REL} arch=$${ARCH}"
+
+        --BOUNDARY
+        Content-Type: application/node.eks.aws
+
+        apiVersion: node.eks.aws/v1alpha1
+        kind: NodeConfig
+        spec:
+          containerd:
+            config: |
+              [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc]
+                runtime_type = 'io.containerd.runsc.v1'
+              [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc.options]
+                BinaryName = '/usr/local/bin/runsc'
+
+        --BOUNDARY--
+  YAML
+
+  depends_on = [helm_release.karpenter, module.vpc]
+}
+
+resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
+  count     = var.enable_agent_sandbox ? 1 : 0
+  wait      = true
+  yaml_body = <<-YAML
+    apiVersion: karpenter.sh/v1
+    kind: NodePool
+    metadata:
+      name: reducto-sandbox
+    spec:
+      disruption:
+        budgets:
+        - nodes: 25%
+        consolidateAfter: 10m
+        # "Balanced" (used on staging-2) isn't a valid consolidationPolicy on
+        # the Karpenter version (1.8.3) this repo pins — that cluster runs a
+        # newer Karpenter. WhenEmptyOrUnderutilized is the closest supported
+        # equivalent and matches this repo's existing default NodePool.
+        consolidationPolicy: WhenEmptyOrUnderutilized
+      template:
+        metadata:
+          labels:
+            node-type: reducto-sandbox
+        spec:
+          expireAfter: Never
+          nodeClassRef:
+            group: karpenter.k8s.aws
+            kind: EC2NodeClass
+            name: reducto-sandbox
+          requirements:
+            - key: "kubernetes.io/arch"
+              operator: In
+              values: ["amd64"]
+            - key: "karpenter.k8s.aws/instance-category"
+              operator: In
+              values: ["c", "m", "r"]
+            - key: "karpenter.k8s.aws/instance-hypervisor"
+              operator: In
+              values: ["nitro"]
+            - key: "karpenter.k8s.aws/instance-capability-flex"
+              operator: In
+              values: ["false"]
+            - key: "karpenter.k8s.aws/instance-generation"
+              # This Karpenter version's NodePool CRD doesn't support "Gte"
+              # (only Gt/Lt) — Gt "6" is equivalent for an integer field.
+              operator: Gt
+              values: ["6"]
+            - key: "karpenter.k8s.aws/instance-cpu"
+              operator: Gt
+              values: ["1"]
+            - key: "karpenter.k8s.aws/instance-cpu"
+              operator: Lt
+              values: ["32"]
+            - key: "karpenter.sh/capacity-type"
+              operator: In
+              values: ["on-demand"]
+          taints:
+            - key: reducto.ai/sandbox
+              value: "true"
+              effect: NoSchedule
+  YAML
+
+  depends_on = [
+    kubectl_manifest.karpenter_sandbox_node_class,
+    module.vpc,
+  ]
+}

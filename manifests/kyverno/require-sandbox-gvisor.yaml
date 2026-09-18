@@ -1,0 +1,48 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-sandbox-gvisor
+  annotations:
+    policies.kyverno.io/title: Require gVisor runtime for sandbox pods
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: >-
+      Sandbox pods run untrusted agent code and MUST use the gVisor (runsc)
+      runtime for kernel isolation — the reducto-sandbox node taint only controls
+      scheduling, not runtime. Matches pods carrying the controller-set label
+      agents.x-k8s.io/sandbox-name-hash (applied by the agent-sandbox controller,
+      not removable via SandboxClaim additionalPodMetadata) in ANY namespace —
+      no namespace filter, so it follows the controller's pod-create span
+      (var.agent_sandbox_write_namespaces) automatically as sandbox namespaces
+      are added, rather than silently missing a new one. runtimeClassName is a
+      pod-spec field users cannot set through a SandboxClaim, so the requirement
+      cannot be labeled away. Residual: a principal holding the controller token
+      could create a native-kernel pod in a sandbox namespace by omitting the
+      label entirely (the exemption is by label-absence — the super-agent proxy
+      is label-less by design). That pod is still bounded by the namespace's
+      restricted PSS (no privileged/hostPath, runAsNonRoot); full closure needs
+      the proxy in its own namespace + an unconditional gVisor requirement here.
+spec:
+  validationFailureAction: Enforce
+  # CREATE-only (runtimeClassName is immutable), so background scans add nothing
+  # but re-fire the denial alert on pre-existing pods every scan — keep it off.
+  background: false
+  rules:
+    - name: sandbox-pods-must-use-gvisor
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              # runtimeClassName is immutable — only checked at creation.
+              operations: [CREATE]
+              selector:
+                matchExpressions:
+                  - key: agents.x-k8s.io/sandbox-name-hash
+                    operator: Exists
+      validate:
+        message: >-
+          Sandbox pods must set runtimeClassName: gvisor (kernel isolation for
+          untrusted agent code).
+        pattern:
+          spec:
+            runtimeClassName: gvisor

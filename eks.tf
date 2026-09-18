@@ -97,6 +97,13 @@ module "eks" {
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
+        # Without this, Kubernetes NetworkPolicy objects are accepted by the
+        # API server but never enforced (no aws-network-policy-agent) — the
+        # agent-sandbox substrate's IMDS/API-server isolation depends on
+        # NetworkPolicy actually being enforced. Matches staging-2, which
+        # already has this on (its NetworkPolicies carry the
+        # networking.k8s.aws/resources finalizer this enables).
+        enableNetworkPolicy = "true"
         resources = {
           limits = {
             memory = "256Mi"
