@@ -2,5 +2,6 @@
 terraform.tfstate
 terraform.tfstate*
 *.tfvars
+*.tfplan
 .envrc
 .terraform.tfstate.lock.info
