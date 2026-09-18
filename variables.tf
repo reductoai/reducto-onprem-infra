@@ -288,7 +288,7 @@ variable "enable_kyverno" {
 
 variable "kyverno_chart_version" {
   type        = string
-  default     = "3.8.2"
+  default     = "3.9.0"
   description = "Kyverno Helm chart version"
 }
 
