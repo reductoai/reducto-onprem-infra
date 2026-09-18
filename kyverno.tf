@@ -5,10 +5,15 @@
 #   - restrict-privileged-hostpath: generic Pod Security "baseline" admission
 #     backstop (independent of PSS namespace labels/RBAC).
 #
-# Ported verbatim from the same policies already proven on Reducto's staging-2
-# cluster. Fleet-specific policies (image-signature verification against
-# Reducto's private ECR, HTTPRoute policies, staging-DB access restriction)
-# are intentionally NOT ported — out of scope for the sandbox substrate.
+# require-sandbox-gvisor is the enforcement mechanism: without it, a
+# misconfigured SandboxTemplate could omit runtimeClassName: gvisor and a
+# sandbox pod would run un-sandboxed. restrict-privileged-hostpath is a
+# general admission backstop (not sandbox-specific) that blocks privileged
+# containers and hostPath mounts cluster-wide, closing an easy node-escape
+# path. Policies for image-signature verification, HTTPRoute validation, or
+# environment-specific database access are intentionally not included here:
+# they depend on infrastructure (a signing pipeline, existing routes, a
+# particular DB topology) this substrate doesn't assume exists.
 
 resource "helm_release" "kyverno" {
   count = var.enable_kyverno ? 1 : 0

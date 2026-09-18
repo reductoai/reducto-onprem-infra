@@ -1,7 +1,7 @@
 # Envoy Gateway egress stack for agent-sandbox traffic ("Pi egress"). Ported
-# (simplified — no Datadog/Doppler/backend-route wiring, no dedicated node
-# pool for the control/data plane) from Reducto's kubernetes-inference-edge
-# module + the pi-sandbox-network policies already proven on staging-2.
+# (simplified: no Datadog/Doppler/backend-route wiring, no dedicated node
+# pool for the control/data plane) from the kubernetes-inference-edge module
+# and its pi-sandbox-network policies.
 #
 # Namespaces:
 #   reducto-pi-egress-system — Envoy Gateway control plane (baseline PSS)
@@ -292,11 +292,10 @@ resource "kubectl_manifest" "pi_gateway" {
 
 # --- Network isolation ------------------------------------------------------
 
-# This is intentionally a transitional policy (matches the one already
-# running on staging-2): sandbox pods still need general internet access for
-# URL-input downloads / agent commands. It blocks all private-network and
-# metadata-service destinations while allowing public internet + the egress
-# proxy path.
+# This is intentionally a transitional policy: sandbox pods still need
+# general internet access for URL-input downloads / agent commands. It
+# blocks all private-network and metadata-service destinations while
+# allowing public internet + the egress proxy path.
 resource "kubectl_manifest" "sandbox_network_policy" {
   count = var.enable_agent_sandbox ? 1 : 0
 

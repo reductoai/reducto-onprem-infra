@@ -1,7 +1,6 @@
 # kubernetes-sigs/agent-sandbox — isolated, stateful, singleton workloads for
 # AI agent runtimes. Vendored from the v0.5.3 GitHub release (see
-# manifests/agent-sandbox/patch.py) to keep deploys deterministic. Ported from
-# the same substrate already proven on Reducto's staging-2 cluster.
+# manifests/agent-sandbox/patch.py) to keep deploys deterministic.
 #
 # The two vendored bundles (manifests/agent-sandbox/{core,extensions}.yaml)
 # are NOT hand-edited — they are upstream release assets with a fixed,

@@ -11,8 +11,6 @@
 # scheduling block injects the sandbox-node selector + toleration (matching the
 # reducto-sandbox NodePool's node-type label + taint), so untrusted agent pods
 # run under runsc on isolated nodes with no per-workload changes.
-#
-# Ported from the same substrate already proven on Reducto's staging-2 cluster.
 
 resource "kubectl_manifest" "gvisor" {
   count = var.enable_agent_sandbox ? 1 : 0

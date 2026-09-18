@@ -147,11 +147,9 @@ resource "kubectl_manifest" "karpenter_node_pool" {
 # Dedicated, tainted node pool for gVisor-isolated agent-sandbox workloads
 # (see gvisor.tf / agent-sandbox.tf). userData installs runsc + registers the
 # containerd runtime handler at boot via a nodeadm NodeConfig merge, so runsc
-# is present before the first pod schedules — no DaemonSet, no restart race.
-# Requirements/taint/disruption mirror the reducto-sandbox NodePool already
-# proven on staging-2 (see plan notes): on-demand only (untrusted-code
-# isolation nodes should not be spot-interruptible mid-task), nitro c/m/r
-# 2-31 vCPU, generation >= 7.
+# is present before the first pod schedules: no DaemonSet, no restart race.
+# On-demand only (untrusted-code isolation nodes should not be
+# spot-interruptible mid-task), nitro c/m/r 2-31 vCPU, generation >= 7.
 resource "kubectl_manifest" "karpenter_sandbox_node_class" {
   count     = var.enable_agent_sandbox ? 1 : 0
   wait      = true
@@ -234,10 +232,10 @@ resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
         budgets:
         - nodes: 25%
         consolidateAfter: 10m
-        # "Balanced" (used on staging-2) isn't a valid consolidationPolicy on
-        # the Karpenter version (1.8.3) this repo pins — that cluster runs a
-        # newer Karpenter. WhenEmptyOrUnderutilized is the closest supported
-        # equivalent and matches this repo's existing default NodePool.
+        # "Balanced" requires a newer Karpenter version than the one this
+        # repo pins (1.8.3); its NodePool CRD only supports WhenEmpty and
+        # WhenEmptyOrUnderutilized. The latter also matches this repo's
+        # existing default NodePool.
         consolidationPolicy: WhenEmptyOrUnderutilized
       template:
         metadata:
