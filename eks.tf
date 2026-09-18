@@ -96,24 +96,33 @@ module "eks" {
       addon_version            = "v1.21.1-eksbuild.3"
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa_role.arn
-      configuration_values = jsonencode({
+      configuration_values = jsonencode(merge(
+        {
+          resources = {
+            limits = {
+              memory = "256Mi"
+            }
+            requests = {
+              cpu    = "50m"
+              memory = "256Mi"
+            }
+          }
+        },
         # NetworkPolicy is what stops sandbox pods (agent-sandbox.tf) from
         # reaching the K8s API server and IMDS. The API server accepts and
         # stores a NetworkPolicy object either way; it's this flag that turns
         # on the VPC CNI's network policy agent, the component that actually
         # enforces it on each node. Without it, the policy exists but every
-        # packet still passes through unfiltered.
-        enableNetworkPolicy = "true"
-        resources = {
-          limits = {
-            memory = "256Mi"
-          }
-          requests = {
-            cpu    = "50m"
-            memory = "256Mi"
-          }
-        }
-      })
+        # packet still passes through unfiltered. Gated the same as the rest
+        # of the sandbox substrate so this repo has zero effect on any other
+        # use of it when the feature is off: this flag turns on enforcement
+        # for every NetworkPolicy in the cluster, not just sandbox ones, so
+        # flipping it on unconditionally could silently start enforcing
+        # policies a customer already had that were previously inert.
+        var.enable_agent_sandbox ? {
+          enableNetworkPolicy = "true"
+        } : {},
+      ))
     }
 
     aws-ebs-csi-driver = {

@@ -272,7 +272,7 @@ variable "helm_release_timeout" {
 variable "enable_agent_sandbox" {
   type        = bool
   default     = false
-  description = "Whether to install the Agent Sandbox controller/CRDs, gVisor RuntimeClass + sandbox NodePool, Kyverno, and the Pi egress gateway substrate"
+  description = "Whether to install the Agent Sandbox controller/CRDs, gVisor RuntimeClass + sandbox NodePool, and the Pi egress gateway substrate. Requires var.enable_kyverno = true (set it separately) for the require-sandbox-gvisor enforcement policy."
 
   validation {
     condition     = !var.enable_agent_sandbox || var.enable_kyverno
