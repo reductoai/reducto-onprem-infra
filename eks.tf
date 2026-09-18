@@ -97,11 +97,12 @@ module "eks" {
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa_role.arn
       configuration_values = jsonencode({
-        # Sandbox pods (agent-sandbox.tf) are blocked from reaching the K8s
-        # API server and IMDS by NetworkPolicy alone, not by RBAC or routing
-        # — without this, NetworkPolicy objects are accepted but silently
-        # never enforced (no aws-network-policy-agent), and that isolation
-        # guarantee quietly doesn't hold.
+        # NetworkPolicy is what stops sandbox pods (agent-sandbox.tf) from
+        # reaching the K8s API server and IMDS. The API server accepts and
+        # stores a NetworkPolicy object either way; it's this flag that turns
+        # on the VPC CNI's network policy agent, the component that actually
+        # enforces it on each node. Without it, the policy exists but every
+        # packet still passes through unfiltered.
         enableNetworkPolicy = "true"
         resources = {
           limits = {
