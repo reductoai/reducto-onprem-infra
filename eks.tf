@@ -159,6 +159,18 @@ module "eks" {
         max_size     = 10
         desired_size = 3
 
+        # Only encrypted is set here (FDE-11 / SC-28): omitting volume_size
+        # and volume_type keeps the AMI's existing root volume defaults, so
+        # this changes nothing but the encryption flag on new nodes.
+        block_device_mappings = {
+          root = {
+            device_name = "/dev/xvda"
+            ebs = {
+              encrypted = true
+            }
+          }
+        }
+
         labels = {
           worker-type = "system"
         }

@@ -81,6 +81,7 @@ resource "kubectl_manifest" "karpenter_node_class" {
             volumeSize: 200Gi
             volumeType: gp3
             throughput: 250
+            encrypted: true
       role: ${module.karpenter.node_iam_role_name}
       detailedMonitoring: true
       subnetSelectorTerms:
