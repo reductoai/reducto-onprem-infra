@@ -12,6 +12,13 @@ controller:
   ingressClassResource:
     default: false
 
+  # TLS 1.2/1.3 only, AES-GCM cipher suites only (FDE-11 / SC-8). ssl-ciphers
+  # only constrains TLS 1.2 negotiation; TLS 1.3 suites are fixed by nginx/
+  # OpenSSL and still include ChaCha20-Poly1305.
+  config:
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+    ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+
   tolerations:
   - key: "CriticalAddonsOnly"
     operator: "Exists"
