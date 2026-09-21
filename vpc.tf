@@ -46,3 +46,10 @@ resource "aws_db_subnet_group" "default" {
   name       = var.cluster_name
   subnet_ids = module.vpc.private_subnets
 }
+
+# FDE-11 / SC-21: validate DNSSEC on outbound resolver queries from this VPC.
+# A domain the cluster resolves with a broken/misconfigured DNSSEC chain will
+# fail to resolve once this is enabled — watch resolution errors after apply.
+resource "aws_route53_resolver_dnssec_config" "this" {
+  resource_id = module.vpc.vpc_id
+}
