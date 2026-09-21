@@ -1,6 +1,14 @@
 datadog:
   apiKeyExistingSecret: datadog-secret
 
+  # FDE-11 / AU-12: ship node and container logs. This does not cover EKS
+  # control-plane audit logs, which already go to CloudWatch (see eks.tf
+  # enabled_log_types) — forwarding those into Datadog needs a separate
+  # CloudWatch-to-Datadog log forwarder, not a chart value.
+  logs:
+    enabled: true
+    containerCollectAll: true
+
   otelCollector:
     enabled: true
     ports:
