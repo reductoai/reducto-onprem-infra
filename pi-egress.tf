@@ -11,18 +11,22 @@
 #                              it's in var.agent_sandbox_write_namespaces)
 #
 # The NetworkPolicies below are the actual isolation mechanism. Sandbox pods
-# are default-deny: they may reach kube-dns and the in-cluster targets listed
-# in var.sandbox_egress_allow, nothing else — no public internet, no VPC, no
-# IMDS, no API server. This is the exfiltration control (model weights or
-# documents inside a sandbox have no route out), and it is the reason Envoy is
-# not on the default path: any reachable public host, allowlisted or not, is a
-# data channel. var.sandbox_allow_public_egress = true re-opens public
-# DNS/HTTPS (with local.pi_sandbox_blocked_cidrs excluded) plus the Envoy
-# proxy path; the trusted Envoy control/data-plane pods only exclude the single
-# IMDS address (169.254.169.254/32) since they legitimately need VPC access.
-# The public EKS endpoint is a public IP and is NOT covered by the blocked
-# list; var.enable_agent_sandbox's validation requires it to be off or
-# CIDR-restricted.
+# have no IP egress at all: they may reach kube-dns, the in-cluster targets in
+# var.sandbox_egress_allow, and the Envoy data plane on :10080 — no public
+# internet, no VPC, no IMDS, no API server. Envoy is the only door to the
+# outside: each host in var.sandbox_egress_allowlist gets an HTTPRoute
+# (plain-HTTP forward-proxy request in, TLS out to the real host), anything
+# else is a 404, and Envoy's JSON access log is the per-request audit trail.
+# The Envoy data plane may only originate connections to public IPs
+# (local.pi_sandbox_blocked_cidrs excluded) so an allowlisted name resolving
+# to a VPC/IMDS address is still dropped; the control plane only excludes
+# IMDS since it needs the API server. The public EKS endpoint is a public IP
+# and is NOT covered by the blocked list; var.enable_agent_sandbox's
+# validation requires it to be off or CIDR-restricted.
+#
+# Sandbox pods must set HTTP_PROXY/HTTPS_PROXY=http://reducto-pi-egress.<ns>:80
+# and use kube-dns (agent-sandbox's default dnsPolicy=None public resolvers
+# are unreachable).
 
 locals {
   pi_labels = {
@@ -52,12 +56,13 @@ locals {
     ]
   }
 
-  # IPv4 ranges sandbox pods must never reach. Derived from the cluster's own
-  # addressing (VPC and service CIDR; subnets and the pod CIDR are carved from
-  # the VPC in vpc.tf) rather than assuming RFC1918, so a
-  # non-RFC1918 VPC or EKS custom networking (100.64.0.0/10 pod CIDR) does not
-  # leak pods/VPC to the sandbox. Overlapping entries are harmless. IPv6 is
-  # denied outright: no egress rule here matches an IPv6 ipBlock.
+  # IPv4 ranges the Envoy data plane must never reach on the sandbox's behalf.
+  # Derived from the cluster's own addressing (VPC and service CIDR; subnets
+  # and the pod CIDR are carved from the VPC in vpc.tf) rather than assuming
+  # RFC1918, so a non-RFC1918 VPC or EKS custom networking (100.64.0.0/10 pod
+  # CIDR) does not leak pods/VPC through the proxy. Overlapping entries are
+  # harmless. IPv6 is denied outright: no egress rule here matches an IPv6
+  # ipBlock.
   pi_sandbox_blocked_cidrs = distinct(concat(
     [
       "10.0.0.0/8",
@@ -70,51 +75,33 @@ locals {
     var.sandbox_blocked_egress_cidrs,
   ))
 
-  # agent-sandbox uses dnsPolicy=None with public resolvers, so its DNS
-  # queries do not traverse the cluster CoreDNS Service.
-  pi_public_dns_egress = {
+  # Envoy Gateway runs the proxy Deployment in the controller namespace; the
+  # Gateway's :80 listener is container port 10080.
+  pi_sandbox_envoy_egress = {
+    to    = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = var.pi_egress_controller_namespace } } }]
+    ports = [{ protocol = "TCP", port = 10080 }]
+  }
+
+  # Upstreams the Envoy data plane may open on behalf of sandbox pods: public
+  # IPv4 only, on the allowlisted ports.
+  pi_envoy_upstream_egress = {
     to = [{
       ipBlock = {
         cidr   = "0.0.0.0/0"
         except = local.pi_sandbox_blocked_cidrs
       }
     }]
-    ports = [
-      { protocol = "UDP", port = 53 },
-      { protocol = "TCP", port = 53 },
-    ]
+    ports = [for p in distinct([for a in var.sandbox_egress_allowlist : a.port]) : { protocol = "TCP", port = p }]
   }
 
-  # The sandbox is untrusted and must not reach cluster, VPC, or metadata
-  # endpoints via "public" HTTPS. This is what makes the EKS API server and
-  # IMDS unreachable from sandbox pods.
-  pi_sandbox_public_https_egress = {
-    to = [{
-      ipBlock = {
-        cidr   = "0.0.0.0/0"
-        except = local.pi_sandbox_blocked_cidrs
-      }
-    }]
-    ports = [{ protocol = "TCP", port = 443 }]
-  }
-
-  # Trusted Envoy control/data-plane pods still need private VPC/API-server
-  # destinations; only IMDS itself is excluded.
+  # The trusted Envoy control plane needs the (private) API server; only IMDS
+  # itself is excluded.
   pi_internet_https_egress = {
     to    = [{ ipBlock = { cidr = "0.0.0.0/0", except = ["169.254.169.254/32"] } }]
     ports = [{ protocol = "TCP", port = 443 }]
   }
 
-  # Opt-in only (var.sandbox_allow_public_egress). Any of these gives sandbox
-  # code a path to the internet and therefore a way to exfiltrate.
-  pi_sandbox_public_egress = [
-    local.pi_public_dns_egress,
-    local.pi_sandbox_public_https_egress,
-    {
-      to    = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = var.pi_egress_controller_namespace } } }]
-      ports = [{ protocol = "TCP", port = 80 }, { protocol = "TCP", port = 10080 }]
-    },
-  ]
+  pi_egress_allowlist = { for a in var.sandbox_egress_allowlist : a.host => a }
 
   # In-cluster services the sandbox is allowed to call (e.g. the Reducto API or
   # an inference endpoint). Namespace + port scoped, never an ipBlock, so it can
@@ -221,6 +208,11 @@ resource "helm_release" "envoy_gateway" {
       }
       service = {
         type = "ClusterIP"
+      }
+      config = {
+        envoyGateway = {
+          extensionApis = { enableBackend = true }
+        }
       }
     })
   ]
@@ -336,12 +328,86 @@ resource "kubectl_manifest" "pi_gateway" {
   depends_on = [kubectl_manifest.pi_gateway_class]
 }
 
+# --- Egress allowlist -------------------------------------------------------
+
+# One Backend + BackendTLSPolicy + HTTPRoute per allowlisted host. The sandbox
+# sends `GET http://api.example.com/...` to the proxy; the HTTPRoute matches on
+# :authority, the Backend points at the FQDN, and the BackendTLSPolicy makes
+# Envoy originate TLS with SNI/SAN = host against system CAs.
+resource "kubectl_manifest" "pi_egress_backend" {
+  for_each = var.enable_agent_sandbox ? local.pi_egress_allowlist : {}
+
+  yaml_body = yamlencode({
+    apiVersion = "gateway.envoyproxy.io/v1alpha1"
+    kind       = "Backend"
+    metadata = {
+      name      = each.key
+      namespace = var.pi_egress_namespace
+      labels    = local.pi_labels
+    }
+    spec = {
+      endpoints = [{ fqdn = { hostname = each.value.host, port = each.value.port } }]
+    }
+  })
+
+  server_side_apply = true
+
+  depends_on = [kubectl_manifest.pi_gateway]
+}
+
+resource "kubectl_manifest" "pi_egress_backend_tls" {
+  for_each = var.enable_agent_sandbox ? local.pi_egress_allowlist : {}
+
+  yaml_body = yamlencode({
+    apiVersion = "gateway.networking.k8s.io/v1"
+    kind       = "BackendTLSPolicy"
+    metadata = {
+      name      = each.key
+      namespace = var.pi_egress_namespace
+      labels    = local.pi_labels
+    }
+    spec = {
+      targetRefs = [{ group = "gateway.envoyproxy.io", kind = "Backend", name = each.key }]
+      validation = {
+        wellKnownCACertificates = "System"
+        hostname                = each.value.host
+      }
+    }
+  })
+
+  server_side_apply = true
+
+  depends_on = [kubectl_manifest.pi_egress_backend]
+}
+
+resource "kubectl_manifest" "pi_egress_route" {
+  for_each = var.enable_agent_sandbox ? local.pi_egress_allowlist : {}
+
+  yaml_body = yamlencode({
+    apiVersion = "gateway.networking.k8s.io/v1"
+    kind       = "HTTPRoute"
+    metadata = {
+      name      = each.key
+      namespace = var.pi_egress_namespace
+      labels    = local.pi_labels
+    }
+    spec = {
+      parentRefs = [{ name = "reducto-pi-egress", sectionName = "http" }]
+      hostnames  = [each.value.host]
+      rules = [{
+        backendRefs = [{ group = "gateway.envoyproxy.io", kind = "Backend", name = each.key }]
+      }]
+    }
+  })
+
+  server_side_apply = true
+
+  depends_on = [kubectl_manifest.pi_egress_backend_tls]
+}
+
 # --- Network isolation ------------------------------------------------------
 
-# Default-deny egress for sandbox pods; see header. Note agent-sandbox pods use
-# dnsPolicy=None with public resolvers, so with public egress off, name
-# resolution inside the sandbox fails unless the SandboxTemplate points DNS at
-# kube-dns (the kube-dns egress rule below is what allows that).
+# Sandbox egress: kube-dns, in-cluster allow list, Envoy proxy. See header.
 resource "kubectl_manifest" "sandbox_network_policy" {
   count = var.enable_agent_sandbox ? 1 : 0
 
@@ -363,9 +429,8 @@ resource "kubectl_manifest" "sandbox_network_policy" {
         ports = [{ protocol = "TCP", port = 8888 }]
       }]
       egress = concat(
-        [local.pi_dns_egress],
+        [local.pi_dns_egress, local.pi_sandbox_envoy_egress],
         local.pi_sandbox_allowed_egress,
-        [for r in local.pi_sandbox_public_egress : r if var.sandbox_allow_public_egress],
       )
     }
   })
@@ -475,7 +540,10 @@ resource "kubectl_manifest" "envoy_data_plane_network_policy" {
           ports = [{ protocol = "TCP", port = 19001 }]
         },
       ]
-      egress = [local.pi_dns_egress, local.pi_xds_egress, local.pi_internet_https_egress]
+      egress = concat(
+        [local.pi_dns_egress, local.pi_xds_egress],
+        length(var.sandbox_egress_allowlist) > 0 ? [local.pi_envoy_upstream_egress] : [],
+      )
     }
   })
 

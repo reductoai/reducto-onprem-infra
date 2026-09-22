@@ -391,10 +391,18 @@ variable "pi_egress_controller_namespace" {
   description = "Namespace containing the Envoy Gateway control plane for the Pi egress stack"
 }
 
-variable "sandbox_allow_public_egress" {
-  type        = bool
-  default     = false
-  description = "Allow sandbox pods to reach the public internet (public DNS + HTTPS, private ranges excluded) and the Envoy egress proxy. Default false: sandbox egress is deny-all except kube-dns and sandbox_egress_allow, so untrusted agent code has no route to exfiltrate data (e.g. model weights). Any allowed public destination, even behind a host allowlist, is an exfiltration channel; enable only if you accept that."
+variable "sandbox_egress_allowlist" {
+  type = list(object({
+    host = string
+    port = optional(number, 443)
+  }))
+  default     = []
+  description = "Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP_PROXY=http://reducto-pi-egress.<pi_egress_namespace>:80). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi_egress_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all."
+
+  validation {
+    condition     = alltrue([for a in var.sandbox_egress_allowlist : can(regex("^([a-z0-9-]+\\.)+[a-z0-9-]+$", a.host)) && a.port >= 1 && a.port <= 65535])
+    error_message = "sandbox_egress_allowlist hosts must be lowercase FQDNs (no wildcards, schemes or ports) with port 1-65535."
+  }
 }
 
 variable "sandbox_egress_allow" {
@@ -415,11 +423,11 @@ variable "sandbox_egress_allow" {
 variable "sandbox_blocked_egress_cidrs" {
   type        = list(string)
   default     = []
-  description = "Only used when sandbox_allow_public_egress = true. Extra CIDRs sandbox pods must never reach, on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
+  description = "Extra CIDRs the Envoy egress data plane must never reach on behalf of sandbox pods (sandbox pods themselves have no IP egress), on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
 
   validation {
     condition     = alltrue([for c in var.sandbox_blocked_egress_cidrs : can(cidrhost(c, 0)) && !strcontains(c, ":")])
-    error_message = "sandbox_blocked_egress_cidrs must be valid IPv4 CIDRs (the sandbox NetworkPolicy is IPv4-only; IPv6 egress is denied entirely)."
+    error_message = "sandbox_blocked_egress_cidrs must be valid IPv4 CIDRs (the egress NetworkPolicy is IPv4-only; IPv6 egress is denied entirely)."
   }
 }
 
