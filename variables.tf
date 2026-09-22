@@ -279,12 +279,12 @@ variable "enable_agent_sandbox" {
     error_message = "enable_agent_sandbox requires enable_kyverno = true (require-sandbox-gvisor is a Kyverno policy)."
   }
 
-  # The sandbox NetworkPolicy blocks private ranges, so it only isolates the
-  # *private* EKS endpoint. A public endpoint open to 0.0.0.0/0 is reachable
-  # from a sandbox pod via the NAT gateway like any other public :443 host.
+  # Sandbox pods have no direct public route, but the Envoy egress data plane
+  # does, and a world-open public EKS endpoint is one misconfigured allowlist
+  # entry away. Require it off or restricted to /8 or narrower.
   validation {
-    condition     = !var.enable_agent_sandbox || !var.cluster_endpoint_public_access || !contains(var.cluster_endpoint_public_access_cidrs, "0.0.0.0/0")
-    error_message = "enable_agent_sandbox requires cluster_endpoint_public_access = false, or cluster_endpoint_public_access_cidrs restricted to trusted CIDRs (not 0.0.0.0/0): sandbox pods can reach a world-open public API endpoint."
+    condition     = !var.enable_agent_sandbox || !var.cluster_endpoint_public_access || alltrue([for c in var.cluster_endpoint_public_access_cidrs : tonumber(split("/", c)[1]) >= 8])
+    error_message = "enable_agent_sandbox requires cluster_endpoint_public_access = false, or every cluster_endpoint_public_access_cidrs entry to be /8 or narrower (not 0.0.0.0/0 or equivalent)."
   }
 
   validation {
@@ -365,18 +365,34 @@ variable "agent_sandbox_write_namespaces" {
     condition     = contains(var.agent_sandbox_write_namespaces, "agent-sandbox-system")
     error_message = "agent_sandbox_write_namespaces must include \"agent-sandbox-system\"."
   }
+
+  validation {
+    condition     = alltrue([for ns in var.agent_sandbox_write_namespaces : !startswith(ns, "kube-") && !contains(["default", "kyverno", "monitoring"], ns)])
+    error_message = "agent_sandbox_write_namespaces must not include kube-*, default, kyverno or monitoring: the controller gets pod/service/networkpolicy write there."
+  }
 }
 
 variable "pi_sandbox_namespace" {
   type        = string
   default     = "reducto-pi-sandbox"
-  description = "Namespace where sandbox runtime pods (SandboxClaims) are created"
+  description = "Namespace where sandbox runtime pods (SandboxClaims) are created. Must be listed in agent_sandbox_write_namespaces."
+
+  validation {
+    condition     = contains(var.agent_sandbox_write_namespaces, var.pi_sandbox_namespace)
+    error_message = "pi_sandbox_namespace must be in agent_sandbox_write_namespaces, or the controller cannot create sandbox pods there."
+  }
 }
 
 variable "pi_sandbox_client_namespace" {
   type        = string
   default     = "reducto-pi-sandbox-client"
-  description = "Namespace whose workloads are allowed to reach the sandbox runtime port; created if it doesn't already exist"
+  description = "Namespace whose workloads are allowed to reach the sandbox runtime port (e.g. the Reducto API's namespace)."
+}
+
+variable "create_pi_sandbox_client_namespace" {
+  type        = bool
+  default     = true
+  description = "Create pi_sandbox_client_namespace (plus an egress NetworkPolicy allowing only sandbox :8888) as a synthetic verification client. Set false when pi_sandbox_client_namespace is an existing application namespace: Terraform must not own (and on teardown delete) it, and the sandbox-only egress policy would cut the app off from DNS and its dependencies."
 }
 
 variable "pi_egress_namespace" {

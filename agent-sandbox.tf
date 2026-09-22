@@ -147,10 +147,12 @@ resource "kubectl_manifest" "agent_sandbox_controller_workloads_role" {
 
   server_side_apply = true
   wait              = true
+  # The controller only gains pod write once the VAP backstop is in place.
   depends_on = [
     kubectl_manifest.agent_sandbox_core,
     kubectl_manifest.agent_sandbox_namespace,
     kubectl_manifest.agent_sandbox_write_namespace,
+    kubectl_manifest.agent_sandbox_controller_vap,
   ]
 }
 

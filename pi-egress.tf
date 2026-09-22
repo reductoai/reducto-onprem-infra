@@ -171,11 +171,11 @@ resource "kubectl_manifest" "pi_egress_namespace" {
 }
 
 # Synthetic "client" namespace so the sandbox-ingress NetworkPolicy has a
-# real namespace to allow from. In a real deployment this would be the
-# Reducto app's own namespace; on this verification-only cluster
-# (enable_reducto = false) nothing runs here yet.
+# real namespace to allow from. In a real deployment
+# pi_sandbox_client_namespace is the Reducto app's own namespace and
+# create_pi_sandbox_client_namespace = false leaves it (and its egress) alone.
 resource "kubectl_manifest" "pi_sandbox_client_namespace" {
-  count = var.enable_agent_sandbox ? 1 : 0
+  count = var.enable_agent_sandbox && var.create_pi_sandbox_client_namespace ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "v1"
@@ -445,7 +445,7 @@ resource "kubectl_manifest" "sandbox_network_policy" {
 }
 
 resource "kubectl_manifest" "staging_to_sandbox_network_policy" {
-  count = var.enable_agent_sandbox ? 1 : 0
+  count = var.enable_agent_sandbox && var.create_pi_sandbox_client_namespace ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "networking.k8s.io/v1"
