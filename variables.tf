@@ -346,10 +346,31 @@ variable "pi_egress_controller_namespace" {
   description = "Namespace containing the Envoy Gateway control plane for the Pi egress stack"
 }
 
+variable "sandbox_allow_public_egress" {
+  type        = bool
+  default     = false
+  description = "Allow sandbox pods to reach the public internet (public DNS + HTTPS, private ranges excluded) and the Envoy egress proxy. Default false: sandbox egress is deny-all except kube-dns and sandbox_egress_allow, so untrusted agent code has no route to exfiltrate data (e.g. model weights). Any allowed public destination, even behind a host allowlist, is an exfiltration channel; enable only if you accept that."
+}
+
+variable "sandbox_egress_allow" {
+  type = list(object({
+    namespace = string
+    port      = number
+    protocol  = optional(string, "TCP")
+  }))
+  default     = []
+  description = "In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = \"reducto\", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses."
+
+  validation {
+    condition     = alltrue([for a in var.sandbox_egress_allow : contains(["TCP", "UDP", "SCTP"], a.protocol) && a.port >= 1 && a.port <= 65535])
+    error_message = "sandbox_egress_allow entries need protocol TCP/UDP/SCTP and port 1-65535."
+  }
+}
+
 variable "sandbox_blocked_egress_cidrs" {
   type        = list(string)
   default     = []
-  description = "Extra CIDRs sandbox pods must never reach, on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
+  description = "Only used when sandbox_allow_public_egress = true. Extra CIDRs sandbox pods must never reach, on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
 
   validation {
     condition     = alltrue([for c in var.sandbox_blocked_egress_cidrs : can(cidrhost(c, 0)) && !strcontains(c, ":")])

@@ -10,14 +10,19 @@
 #                              itself is created by agent-sandbox.tf since
 #                              it's in var.agent_sandbox_write_namespaces)
 #
-# The NetworkPolicies below are the actual K8s-API/IMDS isolation mechanism:
-# sandbox pods get public DNS/HTTPS with local.pi_sandbox_blocked_cidrs
-# excluded (blocks IMDS *and* any private network, including the EKS API
-# server's private endpoint), while the trusted Envoy control/data-plane pods
-# only exclude the single IMDS address (169.254.169.254/32) since they
-# legitimately need VPC access. The public EKS endpoint is a public IP and is
-# NOT covered by this list; var.enable_agent_sandbox's validation requires it
-# to be off or CIDR-restricted.
+# The NetworkPolicies below are the actual isolation mechanism. Sandbox pods
+# are default-deny: they may reach kube-dns and the in-cluster targets listed
+# in var.sandbox_egress_allow, nothing else — no public internet, no VPC, no
+# IMDS, no API server. This is the exfiltration control (model weights or
+# documents inside a sandbox have no route out), and it is the reason Envoy is
+# not on the default path: any reachable public host, allowlisted or not, is a
+# data channel. var.sandbox_allow_public_egress = true re-opens public
+# DNS/HTTPS (with local.pi_sandbox_blocked_cidrs excluded) plus the Envoy
+# proxy path; the trusted Envoy control/data-plane pods only exclude the single
+# IMDS address (169.254.169.254/32) since they legitimately need VPC access.
+# The public EKS endpoint is a public IP and is NOT covered by the blocked
+# list; var.enable_agent_sandbox's validation requires it to be off or
+# CIDR-restricted.
 
 locals {
   pi_labels = {
@@ -99,6 +104,27 @@ locals {
     to    = [{ ipBlock = { cidr = "0.0.0.0/0", except = ["169.254.169.254/32"] } }]
     ports = [{ protocol = "TCP", port = 443 }]
   }
+
+  # Opt-in only (var.sandbox_allow_public_egress). Any of these gives sandbox
+  # code a path to the internet and therefore a way to exfiltrate.
+  pi_sandbox_public_egress = [
+    local.pi_public_dns_egress,
+    local.pi_sandbox_public_https_egress,
+    {
+      to    = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = var.pi_egress_controller_namespace } } }]
+      ports = [{ protocol = "TCP", port = 80 }, { protocol = "TCP", port = 10080 }]
+    },
+  ]
+
+  # In-cluster services the sandbox is allowed to call (e.g. the Reducto API or
+  # an inference endpoint). Namespace + port scoped, never an ipBlock, so it can
+  # only ever name cluster workloads.
+  pi_sandbox_allowed_egress = [
+    for a in var.sandbox_egress_allow : {
+      to    = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = a.namespace } } }]
+      ports = [{ protocol = a.protocol, port = a.port }]
+    }
+  ]
 
   pi_xds_egress = {
     to = [{
@@ -312,10 +338,10 @@ resource "kubectl_manifest" "pi_gateway" {
 
 # --- Network isolation ------------------------------------------------------
 
-# This is intentionally a transitional policy: sandbox pods still need
-# general internet access for URL-input downloads / agent commands. It
-# blocks all private-network and metadata-service destinations while
-# allowing public internet + the egress proxy path.
+# Default-deny egress for sandbox pods; see header. Note agent-sandbox pods use
+# dnsPolicy=None with public resolvers, so with public egress off, name
+# resolution inside the sandbox fails unless the SandboxTemplate points DNS at
+# kube-dns (the kube-dns egress rule below is what allows that).
 resource "kubectl_manifest" "sandbox_network_policy" {
   count = var.enable_agent_sandbox ? 1 : 0
 
@@ -336,15 +362,11 @@ resource "kubectl_manifest" "sandbox_network_policy" {
         from  = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = var.pi_sandbox_client_namespace } } }]
         ports = [{ protocol = "TCP", port = 8888 }]
       }]
-      egress = [
-        local.pi_dns_egress,
-        local.pi_public_dns_egress,
-        local.pi_sandbox_public_https_egress,
-        {
-          to    = [{ namespaceSelector = { matchLabels = { "kubernetes.io/metadata.name" = var.pi_egress_controller_namespace } } }]
-          ports = [{ protocol = "TCP", port = 80 }, { protocol = "TCP", port = 10080 }]
-        },
-      ]
+      egress = concat(
+        [local.pi_dns_egress],
+        local.pi_sandbox_allowed_egress,
+        [for r in local.pi_sandbox_public_egress : r if var.sandbox_allow_public_egress],
+      )
     }
   })
 
