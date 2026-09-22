@@ -3,9 +3,10 @@
 # Two pieces, both gated on var.enable_agent_sandbox:
 #   - gvisor RuntimeClass (this file).
 #   - reducto-sandbox Karpenter NodePool + EC2NodeClass (karpenter.tf): tainted
-#     nodes whose userData installs runsc + registers the runtime handler at
-#     boot. No node-installer DaemonSet, no containerd restart, no bootstrap
-#     race — runsc is present before the first pod schedules.
+#     nodes booted from var.sandbox_ami_id, a hardened AMI with runsc baked in;
+#     userData only registers the containerd runtime handler. No node-installer
+#     DaemonSet, no boot-time download, no containerd restart — runsc is
+#     present before the first pod schedules.
 #
 # A SandboxTemplate opts in with `runtimeClassName: gvisor`; the RuntimeClass
 # scheduling block injects the sandbox-node selector + toleration (matching the

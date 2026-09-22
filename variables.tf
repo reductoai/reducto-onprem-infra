@@ -286,6 +286,28 @@ variable "enable_agent_sandbox" {
     condition     = !var.enable_agent_sandbox || !var.cluster_endpoint_public_access || !contains(var.cluster_endpoint_public_access_cidrs, "0.0.0.0/0")
     error_message = "enable_agent_sandbox requires cluster_endpoint_public_access = false, or cluster_endpoint_public_access_cidrs restricted to trusted CIDRs (not 0.0.0.0/0): sandbox pods can reach a world-open public API endpoint."
   }
+
+  validation {
+    condition     = !var.enable_agent_sandbox || var.sandbox_ami_id != ""
+    error_message = "enable_agent_sandbox requires sandbox_ami_id: sandbox nodes boot from a hardened AMI with gVisor baked in; runsc is not installed at node boot."
+  }
+}
+
+variable "sandbox_ami_id" {
+  type        = string
+  default     = ""
+  description = "AMI ID for reducto-sandbox Karpenter nodes, built by the internal image pipeline with gVisor (runsc + containerd-shim-runsc-v1) baked in at sandbox_runsc_path. Must be an AL2023-based EKS image (nodeadm bootstrap) for the cluster's Kubernetes version. Required when enable_agent_sandbox = true."
+
+  validation {
+    condition     = var.sandbox_ami_id == "" || can(regex("^ami-[0-9a-f]{8,17}$", var.sandbox_ami_id))
+    error_message = "sandbox_ami_id must look like ami-0123456789abcdef0."
+  }
+}
+
+variable "sandbox_runsc_path" {
+  type        = string
+  default     = "/usr/local/bin/runsc"
+  description = "Path of the runsc binary inside sandbox_ami_id (containerd-shim-runsc-v1 must be on containerd's PATH in the same image)."
 }
 
 variable "enable_kyverno" {

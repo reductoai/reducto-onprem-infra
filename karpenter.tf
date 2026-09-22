@@ -145,11 +145,14 @@ resource "kubectl_manifest" "karpenter_node_pool" {
 }
 
 # Dedicated, tainted node pool for gVisor-isolated agent-sandbox workloads
-# (see gvisor.tf / agent-sandbox.tf). userData installs runsc + registers the
-# containerd runtime handler at boot via a nodeadm NodeConfig merge, so runsc
-# is present before the first pod schedules: no DaemonSet, no restart race.
-# On-demand only (untrusted-code isolation nodes should not be
-# spot-interruptible mid-task), nitro c/m/r 2-31 vCPU, generation >= 7.
+# (see gvisor.tf / agent-sandbox.tf). Nodes boot from var.sandbox_ami_id, a
+# hardened AMI with runsc + containerd-shim-runsc-v1 baked in by the internal
+# image pipeline: nothing is downloaded from the internet at node boot, so the
+# node's supply chain is the AMI's, not a public release bucket's. The nodeadm
+# NodeConfig merge only registers the runsc handler with containerd (a no-op
+# if the AMI already ships that config). On-demand only (untrusted-code
+# isolation nodes should not be spot-interruptible mid-task), nitro c/m/r 2-31
+# vCPU, generation >= 7.
 resource "kubectl_manifest" "karpenter_sandbox_node_class" {
   count     = var.enable_agent_sandbox ? 1 : 0
   wait      = true
@@ -159,8 +162,9 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
     metadata:
       name: reducto-sandbox
     spec:
+      amiFamily: AL2023
       amiSelectorTerms:
-      - alias: al2023@v20260120
+      - id: ${var.sandbox_ami_id}
       blockDeviceMappings:
         - deviceName: /dev/xvda
           ebs:
@@ -181,26 +185,6 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
         Content-Type: multipart/mixed; boundary="BOUNDARY"
 
         --BOUNDARY
-        Content-Type: text/x-shellscript; charset="us-ascii"
-
-        #!/bin/bash
-        # Install gVisor (runsc) from the upstream release channel before
-        # containerd starts, so the runsc runtime handler registered by the
-        # NodeConfig below is backed by real binaries at first boot.
-        set -euo pipefail
-        REL="20260622"
-        ARCH=$(uname -m)
-        GCS_PREFIX="https://storage.googleapis.com/gvisor/releases/release/$${REL}/$${ARCH}"
-        for f in runsc containerd-shim-runsc-v1; do
-          curl -sSfL --retry 3 --max-redirs 5 -o "/usr/local/bin/$${f}" "$${GCS_PREFIX}/$${f}"
-          curl -sSfL --retry 3 --max-redirs 5 -o "/tmp/$${f}.sha512" "$${GCS_PREFIX}/$${f}.sha512"
-          sed "s| .*| /usr/local/bin/$${f}|" "/tmp/$${f}.sha512" | sha512sum -c -
-          chmod 0755 "/usr/local/bin/$${f}"
-          rm -f "/tmp/$${f}.sha512"
-        done
-        logger -t gvisor-runsc-install "release=$${REL} arch=$${ARCH}"
-
-        --BOUNDARY
         Content-Type: application/node.eks.aws
 
         apiVersion: node.eks.aws/v1alpha1
@@ -211,7 +195,7 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
               [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc]
                 runtime_type = 'io.containerd.runsc.v1'
               [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc.options]
-                BinaryName = '/usr/local/bin/runsc'
+                BinaryName = '${var.sandbox_runsc_path}'
 
         --BOUNDARY--
   YAML
