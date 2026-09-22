@@ -19,6 +19,10 @@ metadata:
       cannot create a node-escape pod.
 spec:
   validationFailureAction: Enforce
+  # Explicit fail-closed: this is a security gate. Kyverno runs HA (see
+  # kyverno.tf) and KyvernoAdmissionController* alerts cover its availability.
+  webhookConfiguration:
+    failurePolicy: Fail
   # background:false — this is an admission control; the KyvernoNodeEscapePodBlocked
   # alert counts kyverno_policy_results_total{rule_result="fail"}, and background
   # scans re-emit `fail` for every grandfathered violator each cycle, which would

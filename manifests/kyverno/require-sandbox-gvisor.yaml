@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: require-sandbox-gvisor
   annotations:
-    policies.kyverno.io/title: Require gVisor runtime for sandbox pods
+    policies.kyverno.io/title: Require gVisor runtime and no SA token for sandbox pods
     policies.kyverno.io/severity: critical
     policies.kyverno.io/category: Pod Security
     policies.kyverno.io/description: >-
@@ -16,7 +16,10 @@ metadata:
       (var.agent_sandbox_write_namespaces) automatically as sandbox namespaces
       are added, rather than silently missing a new one. runtimeClassName is a
       pod-spec field users cannot set through a SandboxClaim, so the requirement
-      cannot be labeled away. Residual: a principal holding the controller token
+      cannot be labeled away. Sandbox pods must also set
+      automountServiceAccountToken: false, so that even if a sandbox can reach
+      an API server endpoint (e.g. a public EKS endpoint) it holds no credential
+      to present. Residual: a principal holding the controller token
       could create a native-kernel pod in a sandbox namespace by omitting the
       label entirely (the exemption is by label-absence — the super-agent proxy
       is label-less by design). That pod is still bounded by the namespace's
@@ -24,6 +27,9 @@ metadata:
       the proxy in its own namespace + an unconditional gVisor requirement here.
 spec:
   validationFailureAction: Enforce
+  # Explicit: an unreachable Kyverno must deny, not silently admit un-sandboxed pods.
+  webhookConfiguration:
+    failurePolicy: Fail
   # CREATE-only (runtimeClassName is immutable), so background scans add nothing
   # but re-fire the denial alert on pre-existing pods every scan — keep it off.
   background: false
@@ -46,3 +52,22 @@ spec:
         pattern:
           spec:
             runtimeClassName: gvisor
+    - name: sandbox-pods-must-not-mount-sa-token
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              selector:
+                matchExpressions:
+                  - key: agents.x-k8s.io/sandbox-name-hash
+                    operator: Exists
+      validate:
+        message: >-
+          Sandbox pods must set automountServiceAccountToken: false (no
+          Kubernetes API credential inside untrusted agent code).
+        # A pattern requires the field to be present, so omitting it (K8s
+        # default: true) is denied too.
+        pattern:
+          spec:
+            automountServiceAccountToken: false

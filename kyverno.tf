@@ -15,6 +15,17 @@
 # they depend on infrastructure (a signing pipeline, existing routes, a
 # particular DB topology) this substrate doesn't assume exists.
 
+locals {
+  kyverno_system_node_scheduling = {
+    nodeSelector = { "worker-type" = "system" }
+    tolerations = [{
+      key      = "CriticalAddonsOnly"
+      operator = "Exists"
+      effect   = "NoSchedule"
+    }]
+  }
+}
+
 resource "helm_release" "kyverno" {
   count = var.enable_kyverno ? 1 : 0
 
@@ -26,7 +37,37 @@ resource "helm_release" "kyverno" {
   create_namespace = true
   timeout          = var.helm_release_timeout
 
-  depends_on = [module.eks]
+  # restrict-privileged-hostpath matches every Pod outside three namespaces
+  # and the webhooks fail closed, so Kyverno's admission controller is on the
+  # cluster's pod-create path. Run it HA on the system nodes, keep the
+  # fail-closed default explicit, and expose metrics for the alert below.
+  values = [
+    yamlencode(merge(
+      {
+        features = {
+          forceFailurePolicyIgnore = { enabled = false }
+        }
+        admissionController = merge(local.kyverno_system_node_scheduling, {
+          replicas = var.kyverno_admission_replicas
+          podDisruptionBudget = {
+            enabled      = var.kyverno_admission_replicas > 1
+            minAvailable = 1
+          }
+          serviceMonitor = { enabled = true }
+        })
+      },
+      { for c in ["backgroundController", "cleanupController", "reportsController"] : c => local.kyverno_system_node_scheduling },
+    ))
+  ]
+
+  depends_on = [module.eks, helm_release.prometheus_crds]
+}
+
+resource "kubectl_manifest" "kyverno_prometheus_rules" {
+  count     = var.enable_kyverno ? 1 : 0
+  yaml_body = file("${path.module}/manifests/kyverno/prometheus-rules.yaml")
+
+  depends_on = [helm_release.kube_prometheus_stack]
 }
 
 resource "kubectl_manifest" "kyverno_restrict_privileged_hostpath" {

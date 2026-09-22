@@ -11,11 +11,13 @@
 #                              it's in var.agent_sandbox_write_namespaces)
 #
 # The NetworkPolicies below are the actual K8s-API/IMDS isolation mechanism:
-# sandbox pods get public DNS/HTTPS with all of RFC1918 + 169.254.0.0/16
+# sandbox pods get public DNS/HTTPS with local.pi_sandbox_blocked_cidrs
 # excluded (blocks IMDS *and* any private network, including the EKS API
-# server), while the trusted Envoy control/data-plane pods only exclude the
-# single IMDS address (169.254.169.254/32) since they legitimately need VPC
-# access.
+# server's private endpoint), while the trusted Envoy control/data-plane pods
+# only exclude the single IMDS address (169.254.169.254/32) since they
+# legitimately need VPC access. The public EKS endpoint is a public IP and is
+# NOT covered by this list; var.enable_agent_sandbox's validation requires it
+# to be off or CIDR-restricted.
 
 locals {
   pi_labels = {
@@ -45,13 +47,31 @@ locals {
     ]
   }
 
+  # IPv4 ranges sandbox pods must never reach. Derived from the cluster's own
+  # addressing (VPC and service CIDR; subnets and the pod CIDR are carved from
+  # the VPC in vpc.tf) rather than assuming RFC1918, so a
+  # non-RFC1918 VPC or EKS custom networking (100.64.0.0/10 pod CIDR) does not
+  # leak pods/VPC to the sandbox. Overlapping entries are harmless. IPv6 is
+  # denied outright: no egress rule here matches an IPv6 ipBlock.
+  pi_sandbox_blocked_cidrs = distinct(concat(
+    [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "100.64.0.0/10",
+      "169.254.0.0/16",
+    ],
+    [var.vpc_cidr, module.eks.cluster_service_cidr],
+    var.sandbox_blocked_egress_cidrs,
+  ))
+
   # agent-sandbox uses dnsPolicy=None with public resolvers, so its DNS
   # queries do not traverse the cluster CoreDNS Service.
   pi_public_dns_egress = {
     to = [{
       ipBlock = {
         cidr   = "0.0.0.0/0"
-        except = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
+        except = local.pi_sandbox_blocked_cidrs
       }
     }]
     ports = [
@@ -67,7 +87,7 @@ locals {
     to = [{
       ipBlock = {
         cidr   = "0.0.0.0/0"
-        except = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16"]
+        except = local.pi_sandbox_blocked_cidrs
       }
     }]
     ports = [{ protocol = "TCP", port = 443 }]

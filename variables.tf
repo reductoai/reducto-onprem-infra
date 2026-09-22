@@ -278,6 +278,14 @@ variable "enable_agent_sandbox" {
     condition     = !var.enable_agent_sandbox || var.enable_kyverno
     error_message = "enable_agent_sandbox requires enable_kyverno = true (require-sandbox-gvisor is a Kyverno policy)."
   }
+
+  # The sandbox NetworkPolicy blocks private ranges, so it only isolates the
+  # *private* EKS endpoint. A public endpoint open to 0.0.0.0/0 is reachable
+  # from a sandbox pod via the NAT gateway like any other public :443 host.
+  validation {
+    condition     = !var.enable_agent_sandbox || !var.cluster_endpoint_public_access || !contains(var.cluster_endpoint_public_access_cidrs, "0.0.0.0/0")
+    error_message = "enable_agent_sandbox requires cluster_endpoint_public_access = false, or cluster_endpoint_public_access_cidrs restricted to trusted CIDRs (not 0.0.0.0/0): sandbox pods can reach a world-open public API endpoint."
+  }
 }
 
 variable "enable_kyverno" {
@@ -290,6 +298,17 @@ variable "kyverno_chart_version" {
   type        = string
   default     = "3.9.0"
   description = "Kyverno Helm chart version"
+}
+
+variable "kyverno_admission_replicas" {
+  type        = number
+  default     = 3
+  description = "Replicas for the Kyverno admission controller. Its webhooks fail closed (failurePolicy: Fail), so it must be HA: Kyverno requires 1 or an odd number >= 3."
+
+  validation {
+    condition     = var.kyverno_admission_replicas == 1 || (var.kyverno_admission_replicas >= 3 && var.kyverno_admission_replicas % 2 == 1)
+    error_message = "kyverno_admission_replicas must be 1 or an odd number >= 3."
+  }
 }
 
 variable "agent_sandbox_write_namespaces" {
@@ -325,6 +344,17 @@ variable "pi_egress_controller_namespace" {
   type        = string
   default     = "reducto-pi-egress-system"
   description = "Namespace containing the Envoy Gateway control plane for the Pi egress stack"
+}
+
+variable "sandbox_blocked_egress_cidrs" {
+  type        = list(string)
+  default     = []
+  description = "Extra CIDRs sandbox pods must never reach, on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
+
+  validation {
+    condition     = alltrue([for c in var.sandbox_blocked_egress_cidrs : can(cidrhost(c, 0)) && !strcontains(c, ":")])
+    error_message = "sandbox_blocked_egress_cidrs must be valid IPv4 CIDRs (the sandbox NetworkPolicy is IPv4-only; IPv6 egress is denied entirely)."
+  }
 }
 
 variable "envoy_gateway_chart_version" {

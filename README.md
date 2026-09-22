@@ -150,28 +150,53 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [helm_release.aws_load_balancer_controller](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.cert_manager](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.datadog](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
+| [helm_release.envoy_gateway](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.ingress_nginx](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.karpenter](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.karpenter-crd](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.keda](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.kube_prometheus_stack](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
+| [helm_release.kyverno](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.nvidia_device_plugin](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.opentelemetry_collector](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.prometheus_crds](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.reducto](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.telegraf](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
 | [helm_release.vllm_stack](https://registry.terraform.io/providers/hashicorp/helm/3.1.1/docs/resources/release) | resource |
+| [kubectl_manifest.agent_sandbox_controller_vap](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_controller_workloads_binding](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_controller_workloads_role](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_core](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_ext](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.agent_sandbox_write_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.cloudflare_api_secret](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.cluster_issuer](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.cluster_issuer_staging](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.cluster_manifests](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.datadog_secret](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.envoy_controller_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.envoy_data_plane_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.gvisor](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.karpenter_node_class](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.karpenter_node_pool](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.karpenter_sandbox_node_class](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.karpenter_sandbox_node_pool](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.kyverno_prometheus_rules](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.kyverno_require_sandbox_gvisor](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.kyverno_restrict_privileged_hostpath](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.monitoring_ns](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.otel_auth_secret](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.otel_datadog_secret](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_egress_controller_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_egress_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_envoy_proxy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_gateway](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_gateway_class](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.pi_sandbox_client_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.prometheus_rules](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.sandbox_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.staging_to_sandbox_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.telegraf](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.telegraf_sm](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubernetes_secret_v1.hf_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.0.1/docs/resources/secret_v1) | resource |
@@ -181,6 +206,9 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/availability_zones) | data source |
 | [aws_iam_policy_document.rds_enhanced_monitoring](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/data-sources/iam_policy_document) | data source |
+| [kubectl_file_documents.agent_sandbox_controller_vap](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/file_documents) | data source |
+| [kubectl_file_documents.agent_sandbox_core](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/file_documents) | data source |
+| [kubectl_file_documents.agent_sandbox_ext](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/file_documents) | data source |
 | [kubectl_filename_list.cluster_manifests](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/filename_list) | data source |
 | [kubectl_filename_list.prometheus_rules](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/data-sources/filename_list) | data source |
 
@@ -188,6 +216,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_agent_sandbox_write_namespaces"></a> [agent\_sandbox\_write\_namespaces](#input\_agent\_sandbox\_write\_namespaces) | Namespaces the agent-sandbox controller is allowed to create/update pods, PVCs, services, and network policies in. Must include agent-sandbox-system. | `list(string)` | <pre>[<br/>  "agent-sandbox-system",<br/>  "reducto-pi-sandbox"<br/>]</pre> | no |
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates | `string` | n/a | yes |
 | <a name="input_cluster_endpoint_public_access"></a> [cluster\_endpoint\_public\_access](#input\_cluster\_endpoint\_public\_access) | Enable public access to the EKS cluster API endpoint | `bool` | `true` | no |
 | <a name="input_cluster_endpoint_public_access_cidrs"></a> [cluster\_endpoint\_public\_access\_cidrs](#input\_cluster\_endpoint\_public\_access\_cidrs) | List of CIDR blocks allowed to access the public EKS API endpoint | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
@@ -204,16 +233,25 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_elasticache_port"></a> [elasticache\_port](#input\_elasticache\_port) | Port used by the ElastiCache replication group | `number` | `6379` | no |
 | <a name="input_elasticache_replica_count"></a> [elasticache\_replica\_count](#input\_elasticache\_replica\_count) | Number of ElastiCache read replicas; set to at least one for automatic failover and Multi-AZ | `number` | `1` | no |
 | <a name="input_elasticache_snapshot_retention_limit"></a> [elasticache\_snapshot\_retention\_limit](#input\_elasticache\_snapshot\_retention\_limit) | Number of days ElastiCache snapshots are retained; set to zero to disable automatic snapshots | `number` | `7` | no |
+| <a name="input_enable_agent_sandbox"></a> [enable\_agent\_sandbox](#input\_enable\_agent\_sandbox) | Whether to install the Agent Sandbox controller/CRDs, gVisor RuntimeClass + sandbox NodePool, and the Pi egress gateway substrate. Requires var.enable\_kyverno = true (set it separately) for the require-sandbox-gvisor enforcement policy. | `bool` | `false` | no |
 | <a name="input_enable_elasticache"></a> [enable\_elasticache](#input\_enable\_elasticache) | Provision a private, TLS-enabled Amazon ElastiCache for Valkey replication group and wire Reducto to it. Opt in when using the New Reducto Architecture or another Redis-backed feature. | `bool` | `false` | no |
 | <a name="input_enable_gpu_managed_node_group"></a> [enable\_gpu\_managed\_node\_group](#input\_enable\_gpu\_managed\_node\_group) | Whether to create the GPU managed node group (system\_gpu) for GPU workloads | `bool` | `false` | no |
+| <a name="input_enable_kyverno"></a> [enable\_kyverno](#input\_enable\_kyverno) | Whether to install Kyverno and its cluster policies | `bool` | `false` | no |
 | <a name="input_enable_nvidia_device_plugin"></a> [enable\_nvidia\_device\_plugin](#input\_enable\_nvidia\_device\_plugin) | Whether to install the NVIDIA device plugin for GPU support | `bool` | `false` | no |
 | <a name="input_enable_otel_collector"></a> [enable\_otel\_collector](#input\_enable\_otel\_collector) | Whether to deploy the OpenTelemetry Collector on the cluster | `bool` | `false` | no |
 | <a name="input_enable_reducto"></a> [enable\_reducto](#input\_enable\_reducto) | Whether to deploy the Reducto application via Helm | `bool` | `true` | no |
 | <a name="input_enable_vllm_stack"></a> [enable\_vllm\_stack](#input\_enable\_vllm\_stack) | Whether to deploy the vLLM stack on the cluster | `bool` | `false` | no |
+| <a name="input_envoy_gateway_chart_version"></a> [envoy\_gateway\_chart\_version](#input\_envoy\_gateway\_chart\_version) | Envoy Gateway Helm chart version (gateway-helm, oci://docker.io/envoyproxy) | `string` | `"v1.8.1"` | no |
 | <a name="input_helm_release_timeout"></a> [helm\_release\_timeout](#input\_helm\_release\_timeout) | Timeout in seconds for Helm release operations | `number` | `900` | no |
+| <a name="input_kyverno_admission_replicas"></a> [kyverno\_admission\_replicas](#input\_kyverno\_admission\_replicas) | Replicas for the Kyverno admission controller. Its webhooks fail closed (failurePolicy: Fail), so it must be HA: Kyverno requires 1 or an odd number >= 3. | `number` | `3` | no |
+| <a name="input_kyverno_chart_version"></a> [kyverno\_chart\_version](#input\_kyverno\_chart\_version) | Kyverno Helm chart version | `string` | `"3.9.0"` | no |
 | <a name="input_otel_auth_token"></a> [otel\_auth\_token](#input\_otel\_auth\_token) | Auth token used by the OpenTelemetry collector | `string` | `""` | no |
 | <a name="input_otel_datadog_api_key"></a> [otel\_datadog\_api\_key](#input\_otel\_datadog\_api\_key) | Datadog API key used by the OpenTelemetry collector exporter | `string` | `"admin"` | no |
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |
+| <a name="input_pi_egress_controller_namespace"></a> [pi\_egress\_controller\_namespace](#input\_pi\_egress\_controller\_namespace) | Namespace containing the Envoy Gateway control plane for the Pi egress stack | `string` | `"reducto-pi-egress-system"` | no |
+| <a name="input_pi_egress_namespace"></a> [pi\_egress\_namespace](#input\_pi\_egress\_namespace) | Namespace containing the Envoy data plane and edge Gateway/routes for the Pi egress stack | `string` | `"reducto-pi-egress"` | no |
+| <a name="input_pi_sandbox_client_namespace"></a> [pi\_sandbox\_client\_namespace](#input\_pi\_sandbox\_client\_namespace) | Namespace whose workloads are allowed to reach the sandbox runtime port; created if it doesn't already exist | `string` | `"reducto-pi-sandbox-client"` | no |
+| <a name="input_pi_sandbox_namespace"></a> [pi\_sandbox\_namespace](#input\_pi\_sandbox\_namespace) | Namespace where sandbox runtime pods (SandboxClaims) are created | `string` | `"reducto-pi-sandbox"` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets CIDRs | `list(string)` | `[]` | no |
 | <a name="input_public_subnets"></a> [public\_subnets](#input\_public\_subnets) | List of public subnets CIDRs | `list(string)` | `[]` | no |
 | <a name="input_reducto_extra_values_files"></a> [reducto\_extra\_values\_files](#input\_reducto\_extra\_values\_files) | Paths to additional Helm values files layered last. Use this for deployment-specific queue worker settings. | `list(string)` | `[]` | no |
@@ -223,6 +261,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_reducto_helm_repo_username"></a> [reducto\_helm\_repo\_username](#input\_reducto\_helm\_repo\_username) | Username for Helm Registry for Reducto Helm Chart | `string` | n/a | yes |
 | <a name="input_reducto_host"></a> [reducto\_host](#input\_reducto\_host) | Full host DNS for Reducto (Example: reducto.mydomain.com) | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region where resources will be created | `string` | `"us-east-1"` | no |
+| <a name="input_sandbox_blocked_egress_cidrs"></a> [sandbox\_blocked\_egress\_cidrs](#input\_sandbox\_blocked\_egress\_cidrs) | Extra CIDRs sandbox pods must never reach, on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc\_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here. | `list(string)` | `[]` | no |
 | <a name="input_slack_webhook_url"></a> [slack\_webhook\_url](#input\_slack\_webhook\_url) | Slack Webhook URL for Alertmanager | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to AWS resources, including organization-required cost, environment, and ownership tags | `map(string)` | `{}` | no |
 | <a name="input_vllm_stack_hf_token"></a> [vllm\_stack\_hf\_token](#input\_vllm\_stack\_hf\_token) | Hugging Face API token used by the vLLM stack for model access | `string` | `""` | no |

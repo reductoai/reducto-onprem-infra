@@ -1,0 +1,50 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kyverno
+  namespace: monitoring
+spec:
+  groups:
+  - name: kyverno
+    rules:
+    # Kyverno's webhooks fail closed (failurePolicy: Fail) and
+    # restrict-privileged-hostpath matches every Pod outside a few namespaces,
+    # so an unavailable admission controller blocks pod creation cluster-wide.
+    - alert: KyvernoAdmissionControllerDegraded
+      annotations:
+        description: kyverno-admission-controller has {{ $value }} available replicas. Its webhooks fail closed, so with 0 available no Pod can be created anywhere in the cluster.
+      expr: |-
+        kube_deployment_status_replicas_available{namespace="kyverno",deployment="kyverno-admission-controller"}
+          < kube_deployment_spec_replicas{namespace="kyverno",deployment="kyverno-admission-controller"}
+      for: 10m
+      labels:
+        severity: critical
+    - alert: KyvernoAdmissionControllerDown
+      annotations:
+        description: kyverno-admission-controller has no available replicas. Webhooks fail closed, so Pod creation is blocked cluster-wide.
+      expr: |-
+        kube_deployment_status_replicas_available{namespace="kyverno",deployment="kyverno-admission-controller"} == 0
+      for: 2m
+      labels:
+        severity: critical
+    # The API server could not reach or got an error from a Kyverno webhook.
+    # With failurePolicy: Fail every such request was denied.
+    - alert: KyvernoWebhookCallErrors
+      annotations:
+        description: The API server rejected {{ $value }} admission requests in 10m because a Kyverno webhook ({{ $labels.name }}) errored or was unreachable ({{ $labels.error_type }}). Requests fail closed.
+      expr: |-
+        sum by (name, error_type) (
+          increase(apiserver_admission_webhook_rejection_count{name=~".*kyverno.*",error_type!="no_error"}[10m])
+        ) > 0
+      for: 5m
+      labels:
+        severity: critical
+    - alert: KyvernoAdmissionDenials
+      annotations:
+        description: Kyverno denied {{ $value }} {{ $labels.resource_kind }} {{ $labels.resource_request_operation }} requests in namespace {{ $labels.resource_namespace }} over 15m. Check the policy violation events (kubectl get events -A --field-selector reason=PolicyViolation).
+      expr: |-
+        sum by (resource_namespace, resource_kind, resource_request_operation) (
+          increase(kyverno_admission_requests_total{request_allowed="false"}[15m])
+        ) > 0
+      labels:
+        severity: warning
