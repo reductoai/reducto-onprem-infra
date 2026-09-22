@@ -304,6 +304,29 @@ variable "sandbox_ami_id" {
   }
 }
 
+variable "sandbox_node_provisioner" {
+  type        = string
+  default     = "karpenter"
+  description = "How reducto-sandbox nodes are provisioned: \"karpenter\" (NodePool + EC2NodeClass in karpenter.tf) or \"managed_node_group\" (EKS managed node group in eks.tf, for clusters that do not run Karpenter). Both boot sandbox_ami_id with the same node-type label and reducto.ai/sandbox taint."
+
+  validation {
+    condition     = contains(["karpenter", "managed_node_group"], var.sandbox_node_provisioner)
+    error_message = "sandbox_node_provisioner must be \"karpenter\" or \"managed_node_group\"."
+  }
+}
+
+variable "sandbox_managed_node_group" {
+  type = object({
+    instance_types = optional(list(string), ["m7i.xlarge", "m7i.2xlarge"])
+    min_size       = optional(number, 0)
+    max_size       = optional(number, 10)
+    desired_size   = optional(number, 1)
+    disk_size_gb   = optional(number, 150)
+  })
+  default     = {}
+  description = "Sizing for the reducto-sandbox EKS managed node group (only used when sandbox_node_provisioner = \"managed_node_group\"). On-demand only."
+}
+
 variable "sandbox_runsc_path" {
   type        = string
   default     = "/usr/local/bin/runsc"

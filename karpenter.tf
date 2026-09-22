@@ -145,7 +145,9 @@ resource "kubectl_manifest" "karpenter_node_pool" {
 }
 
 # Dedicated, tainted node pool for gVisor-isolated agent-sandbox workloads
-# (see gvisor.tf / agent-sandbox.tf). Nodes boot from var.sandbox_ami_id, a
+# (see gvisor.tf / agent-sandbox.tf); the Karpenter half of
+# var.sandbox_node_provisioner (the managed-node-group half lives in eks.tf).
+# Nodes boot from var.sandbox_ami_id, a
 # hardened AMI with runsc + containerd-shim-runsc-v1 baked in by the internal
 # image pipeline: nothing is downloaded from the internet at node boot, so the
 # node's supply chain is the AMI's, not a public release bucket's. The nodeadm
@@ -154,7 +156,7 @@ resource "kubectl_manifest" "karpenter_node_pool" {
 # isolation nodes should not be spot-interruptible mid-task), nitro c/m/r 2-31
 # vCPU, generation >= 7.
 resource "kubectl_manifest" "karpenter_sandbox_node_class" {
-  count     = var.enable_agent_sandbox ? 1 : 0
+  count     = local.sandbox_karpenter ? 1 : 0
   wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.k8s.aws/v1
@@ -187,16 +189,7 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
         --BOUNDARY
         Content-Type: application/node.eks.aws
 
-        apiVersion: node.eks.aws/v1alpha1
-        kind: NodeConfig
-        spec:
-          containerd:
-            config: |
-              [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc]
-                runtime_type = 'io.containerd.runsc.v1'
-              [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc.options]
-                BinaryName = '${var.sandbox_runsc_path}'
-
+        ${indent(8, local.sandbox_runsc_nodeconfig)}
         --BOUNDARY--
   YAML
 
@@ -204,7 +197,7 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
 }
 
 resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
-  count     = var.enable_agent_sandbox ? 1 : 0
+  count     = local.sandbox_karpenter ? 1 : 0
   wait      = true
   yaml_body = <<-YAML
     apiVersion: karpenter.sh/v1
@@ -223,8 +216,7 @@ resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
         consolidationPolicy: WhenEmptyOrUnderutilized
       template:
         metadata:
-          labels:
-            node-type: reducto-sandbox
+          labels: ${jsonencode(local.sandbox_node_label)}
         spec:
           expireAfter: Never
           nodeClassRef:
@@ -258,10 +250,7 @@ resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
             - key: "karpenter.sh/capacity-type"
               operator: In
               values: ["on-demand"]
-          taints:
-            - key: reducto.ai/sandbox
-              value: "true"
-              effect: NoSchedule
+          taints: ${jsonencode([local.sandbox_node_taint])}
   YAML
 
   depends_on = [

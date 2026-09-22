@@ -226,6 +226,49 @@ module "eks" {
           }
         }
       }
+    } : {},
+    # gVisor sandbox nodes for clusters without Karpenter
+    # (var.sandbox_node_provisioner = "managed_node_group"). Same AMI, label and
+    # taint as the reducto-sandbox Karpenter pool; see gvisor.tf.
+    local.sandbox_mng ? {
+      sandbox = {
+        ami_type                   = "AL2023_x86_64_STANDARD"
+        ami_id                     = var.sandbox_ami_id
+        enable_bootstrap_user_data = true
+        cloudinit_pre_nodeadm = [{
+          content      = local.sandbox_runsc_nodeconfig
+          content_type = "application/node.eks.aws"
+        }]
+        instance_types    = var.sandbox_managed_node_group.instance_types
+        capacity_type     = "ON_DEMAND"
+        enable_monitoring = true
+
+        min_size     = var.sandbox_managed_node_group.min_size
+        max_size     = var.sandbox_managed_node_group.max_size
+        desired_size = var.sandbox_managed_node_group.desired_size
+
+        labels = local.sandbox_node_label
+
+        block_device_mappings = {
+          root = {
+            device_name = "/dev/xvda"
+            ebs = {
+              volume_size           = var.sandbox_managed_node_group.disk_size_gb
+              volume_type           = "gp3"
+              encrypted             = true
+              delete_on_termination = true
+            }
+          }
+        }
+
+        taints = {
+          sandbox = {
+            key    = local.sandbox_node_taint.key
+            value  = local.sandbox_node_taint.value
+            effect = "NO_SCHEDULE"
+          }
+        }
+      }
     } : {}
   )
 
