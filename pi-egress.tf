@@ -10,10 +10,14 @@
 #                              itself is created by agent-sandbox.tf since
 #                              it's in var.agent_sandbox_write_namespaces)
 #
-# The NetworkPolicies below are the actual isolation mechanism. Sandbox pods
-# have no IP egress at all: they may reach kube-dns, the in-cluster targets in
-# var.sandbox_egress_allow, and the Envoy data plane on :10080 — no public
-# internet, no VPC, no IMDS, no API server. Envoy is the only door to the
+# The NetworkPolicies below are the actual isolation mechanism. Every pod in a
+# sandbox namespace starts from a namespace-wide default deny, so a pod without
+# the controller's sandbox-name-hash label gets no traffic at all. Labeled
+# sandbox pods may reach only the in-cluster targets in
+# var.sandbox_egress_allow and the Envoy data plane on :10080 — no DNS, no
+# public internet, no VPC, no IMDS, no API server. DNS is withheld because
+# CoreDNS recurses to the internet, so query names alone would be an exfil
+# channel; Envoy resolves the real upstream hosts. Envoy is the only door to the
 # outside: each host in var.sandbox_egress_allowlist gets an HTTPRoute
 # (plain-HTTP forward-proxy request in, TLS out to the real host), anything
 # else is a 404, and Envoy's JSON access log is the per-request audit trail.
@@ -24,9 +28,12 @@
 # and is NOT covered by the blocked list; var.enable_agent_sandbox's
 # validation requires it to be off or CIDR-restricted.
 #
-# Sandbox pods must set HTTP_PROXY/HTTPS_PROXY=http://reducto-pi-egress.<ns>:80
-# and use kube-dns (agent-sandbox's default dnsPolicy=None public resolvers
-# are unreachable).
+# Sandbox pods must set HTTP_PROXY/HTTPS_PROXY to output.pi_egress_proxy_url,
+# which uses the proxy Service's pinned ClusterIP since sandboxes cannot
+# resolve names, and in-cluster targets must likewise be addressed by
+# ClusterIP. SandboxTemplates must set networkPolicyManagement: Unmanaged
+# (enforced by Kyverno): the upstream Managed default makes the controller
+# add its own policy allowing all public egress, and policies are additive.
 
 locals {
   pi_labels = {
@@ -45,6 +52,14 @@ locals {
   # always created by monitoring.tf; there's no "datadog" namespace on this
   # sandbox cluster.
   pi_metrics_namespaces = ["monitoring"]
+
+  # Every namespace the controller may create pods in, minus its own.
+  pi_sandbox_namespaces = setsubtract(var.agent_sandbox_write_namespaces, ["agent-sandbox-system"])
+
+  # Offset 200 sits in the service CIDR's static band, which the API server
+  # skips for dynamic allocation while it has room elsewhere, so it does not
+  # collide with kube-dns (.10) or the kubernetes Service (.1).
+  pi_egress_proxy_cluster_ip = coalesce(var.pi_egress_proxy_cluster_ip, cidrhost(module.eks.cluster_service_cidr, 200))
 
   pi_dns_egress = {
     to = [{
@@ -252,6 +267,9 @@ resource "kubectl_manifest" "pi_envoy_proxy" {
           envoyService = {
             name = "reducto-pi-egress"
             type = "ClusterIP"
+            patch = {
+              value = { spec = { clusterIP = local.pi_egress_proxy_cluster_ip } }
+            }
           }
         }
       }
@@ -407,7 +425,31 @@ resource "kubectl_manifest" "pi_egress_route" {
 
 # --- Network isolation ------------------------------------------------------
 
-# Sandbox egress: kube-dns, in-cluster allow list, Envoy proxy. See header.
+# Baseline for every pod in a sandbox namespace, labeled or not. The labeled
+# sandbox policy below adds the only allowed paths on top of it.
+resource "kubectl_manifest" "sandbox_namespace_default_deny" {
+  for_each = var.enable_agent_sandbox ? local.pi_sandbox_namespaces : toset([])
+
+  yaml_body = yamlencode({
+    apiVersion = "networking.k8s.io/v1"
+    kind       = "NetworkPolicy"
+    metadata = {
+      name      = "default-deny-all"
+      namespace = each.value
+      labels    = local.pi_labels
+    }
+    spec = {
+      podSelector = {}
+      policyTypes = ["Ingress", "Egress"]
+    }
+  })
+
+  server_side_apply = true
+
+  depends_on = [kubectl_manifest.agent_sandbox_write_namespace]
+}
+
+# Sandbox egress: in-cluster allow list and the Envoy proxy. See header.
 resource "kubectl_manifest" "sandbox_network_policy" {
   count = var.enable_agent_sandbox ? 1 : 0
 
@@ -429,7 +471,7 @@ resource "kubectl_manifest" "sandbox_network_policy" {
         ports = [{ protocol = "TCP", port = 8888 }]
       }]
       egress = concat(
-        [local.pi_dns_egress, local.pi_sandbox_envoy_egress],
+        [local.pi_sandbox_envoy_egress],
         local.pi_sandbox_allowed_egress,
       )
     }

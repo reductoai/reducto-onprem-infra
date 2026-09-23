@@ -1,7 +1,10 @@
-# Kyverno admission control. Only the two policies relevant to the agent
+# Kyverno admission control. Only the policies relevant to the agent
 # sandbox substrate are ported here (see manifests/kyverno/):
 #   - require-sandbox-gvisor: enforce `runtimeClassName: gvisor` on every Pod
-#     the agent-sandbox controller creates (gated on enable_agent_sandbox too).
+#     the agent-sandbox controller creates and on every Pod in a sandbox
+#     namespace (gated on enable_agent_sandbox too).
+#   - require-sandbox-template-unmanaged: reject SandboxTemplates that would
+#     let the controller add its own allow-public-egress NetworkPolicy.
 #   - restrict-privileged-hostpath: generic Pod Security "baseline" admission
 #     backstop (independent of PSS namespace labels/RBAC).
 #
@@ -80,8 +83,19 @@ resource "kubectl_manifest" "kyverno_restrict_privileged_hostpath" {
 }
 
 resource "kubectl_manifest" "kyverno_require_sandbox_gvisor" {
+  count = var.enable_kyverno && var.enable_agent_sandbox ? 1 : 0
+  yaml_body = templatefile("${path.module}/manifests/kyverno/require-sandbox-gvisor.yaml.tftpl", {
+    sandbox_namespaces = sort(local.pi_sandbox_namespaces)
+  })
+  server_side_apply = true
+  wait              = true
+
+  depends_on = [helm_release.kyverno]
+}
+
+resource "kubectl_manifest" "kyverno_require_sandbox_template_unmanaged" {
   count             = var.enable_kyverno && var.enable_agent_sandbox ? 1 : 0
-  yaml_body         = file("${path.module}/manifests/kyverno/require-sandbox-gvisor.yaml")
+  yaml_body         = file("${path.module}/manifests/kyverno/require-sandbox-template-unmanaged.yaml")
   server_side_apply = true
   wait              = true
 

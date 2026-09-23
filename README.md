@@ -89,7 +89,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.2.0 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.28.0 |
 | <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.1.1 |
@@ -101,7 +101,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.28.0 |
 | <a name="provider_helm"></a> [helm](#provider\_helm) | 3.1.1 |
 | <a name="provider_kubectl"></a> [kubectl](#provider\_kubectl) | 1.19.0 |
@@ -111,7 +111,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_ebs_csi_irsa_role"></a> [ebs\_csi\_irsa\_role](#module\_ebs\_csi\_irsa\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts | v6.4.0 |
 | <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | 21.15.1 |
 | <a name="module_karpenter"></a> [karpenter](#module\_karpenter) | terraform-aws-modules/eks/aws//modules/karpenter | 21.12.0 |
@@ -126,7 +126,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_db_subnet_group.default](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/db_subnet_group) | resource |
 | [aws_elasticache_parameter_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_parameter_group) | resource |
 | [aws_elasticache_replication_group.reducto](https://registry.terraform.io/providers/hashicorp/aws/6.28.0/docs/resources/elasticache_replication_group) | resource |
@@ -184,6 +184,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [kubectl_manifest.karpenter_sandbox_node_pool](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.kyverno_prometheus_rules](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.kyverno_require_sandbox_gvisor](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.kyverno_require_sandbox_template_unmanaged](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.kyverno_restrict_privileged_hostpath](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.monitoring_ns](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.otel_auth_secret](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
@@ -198,6 +199,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | [kubectl_manifest.pi_gateway_class](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.pi_sandbox_client_namespace](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.prometheus_rules](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
+| [kubectl_manifest.sandbox_namespace_default_deny](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.sandbox_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.staging_to_sandbox_network_policy](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
 | [kubectl_manifest.telegraf](https://registry.terraform.io/providers/gavinbunney/kubectl/1.19.0/docs/resources/manifest) | resource |
@@ -218,7 +220,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_agent_sandbox_write_namespaces"></a> [agent\_sandbox\_write\_namespaces](#input\_agent\_sandbox\_write\_namespaces) | Namespaces the agent-sandbox controller is allowed to create/update pods, PVCs, services, and network policies in. Must include agent-sandbox-system. | `list(string)` | <pre>[<br/>  "agent-sandbox-system",<br/>  "reducto-pi-sandbox"<br/>]</pre> | no |
 | <a name="input_cloudflare_api_token"></a> [cloudflare\_api\_token](#input\_cloudflare\_api\_token) | Cloudflare API token for Cert Manager to use DNS solver for issuing TLS certificates | `string` | n/a | yes |
 | <a name="input_cluster_endpoint_public_access"></a> [cluster\_endpoint\_public\_access](#input\_cluster\_endpoint\_public\_access) | Enable public access to the EKS cluster API endpoint | `bool` | `true` | no |
@@ -254,6 +256,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_otel_host"></a> [otel\_host](#input\_otel\_host) | FQDN for exposing the OpenTelemetry Collector | `string` | `""` | no |
 | <a name="input_pi_egress_controller_namespace"></a> [pi\_egress\_controller\_namespace](#input\_pi\_egress\_controller\_namespace) | Namespace containing the Envoy Gateway control plane for the Pi egress stack | `string` | `"reducto-pi-egress-system"` | no |
 | <a name="input_pi_egress_namespace"></a> [pi\_egress\_namespace](#input\_pi\_egress\_namespace) | Namespace containing the Envoy data plane and edge Gateway/routes for the Pi egress stack | `string` | `"reducto-pi-egress"` | no |
+| <a name="input_pi_egress_proxy_cluster_ip"></a> [pi\_egress\_proxy\_cluster\_ip](#input\_pi\_egress\_proxy\_cluster\_ip) | ClusterIP pinned on the Envoy egress proxy Service, so sandbox pods (which have no DNS) can reach it by address. Must be inside the cluster service CIDR. Default: offset 200 of the service CIDR. | `string` | `null` | no |
 | <a name="input_pi_sandbox_client_namespace"></a> [pi\_sandbox\_client\_namespace](#input\_pi\_sandbox\_client\_namespace) | Namespace whose workloads are allowed to reach the sandbox runtime port (e.g. the Reducto API's namespace). | `string` | `"reducto-pi-sandbox-client"` | no |
 | <a name="input_pi_sandbox_namespace"></a> [pi\_sandbox\_namespace](#input\_pi\_sandbox\_namespace) | Namespace where sandbox runtime pods (SandboxClaims) are created. Must be listed in agent\_sandbox\_write\_namespaces. | `string` | `"reducto-pi-sandbox"` | no |
 | <a name="input_private_subnets"></a> [private\_subnets](#input\_private\_subnets) | List of private subnets CIDRs | `list(string)` | `[]` | no |
@@ -267,8 +270,8 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="input_region"></a> [region](#input\_region) | AWS region where resources will be created | `string` | `"us-east-1"` | no |
 | <a name="input_sandbox_ami_id"></a> [sandbox\_ami\_id](#input\_sandbox\_ami\_id) | AMI ID for reducto-sandbox Karpenter nodes, built by the internal image pipeline with gVisor (runsc + containerd-shim-runsc-v1) baked in at sandbox\_runsc\_path. Must be an AL2023-based EKS image (nodeadm bootstrap) for the cluster's Kubernetes version. Required when enable\_agent\_sandbox = true. | `string` | `""` | no |
 | <a name="input_sandbox_blocked_egress_cidrs"></a> [sandbox\_blocked\_egress\_cidrs](#input\_sandbox\_blocked\_egress\_cidrs) | Extra CIDRs the Envoy egress data plane must never reach on behalf of sandbox pods (sandbox pods themselves have no IP egress), on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc\_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here. | `list(string)` | `[]` | no |
-| <a name="input_sandbox_egress_allow"></a> [sandbox\_egress\_allow](#input\_sandbox\_egress\_allow) | In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = "reducto", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses. | <pre>list(object({<br/>    namespace = string<br/>    port      = number<br/>    protocol  = optional(string, "TCP")<br/>  }))</pre> | `[]` | no |
-| <a name="input_sandbox_egress_allowlist"></a> [sandbox\_egress\_allowlist](#input\_sandbox\_egress\_allowlist) | Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP\_PROXY=http://reducto-pi-egress.<pi\_egress\_namespace>:80). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi\_egress\_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all. | <pre>list(object({<br/>    host = string<br/>    port = optional(number, 443)<br/>  }))</pre> | `[]` | no |
+| <a name="input_sandbox_egress_allow"></a> [sandbox\_egress\_allow](#input\_sandbox\_egress\_allow) | In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = "reducto", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses. Sandbox pods have no DNS, so they must address these targets by ClusterIP. | <pre>list(object({<br/>    namespace = string<br/>    port      = number<br/>    protocol  = optional(string, "TCP")<br/>  }))</pre> | `[]` | no |
+| <a name="input_sandbox_egress_allowlist"></a> [sandbox\_egress\_allowlist](#input\_sandbox\_egress\_allowlist) | Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP\_PROXY=output.pi\_egress\_proxy\_url). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi\_egress\_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all. | <pre>list(object({<br/>    host = string<br/>    port = optional(number, 443)<br/>  }))</pre> | `[]` | no |
 | <a name="input_sandbox_managed_node_group"></a> [sandbox\_managed\_node\_group](#input\_sandbox\_managed\_node\_group) | Sizing for the reducto-sandbox EKS managed node group (only used when sandbox\_node\_provisioner = "managed\_node\_group"). On-demand only. | <pre>object({<br/>    instance_types = optional(list(string), ["m7i.xlarge", "m7i.2xlarge"])<br/>    min_size       = optional(number, 0)<br/>    max_size       = optional(number, 10)<br/>    desired_size   = optional(number, 1)<br/>    disk_size_gb   = optional(number, 150)<br/>  })</pre> | `{}` | no |
 | <a name="input_sandbox_node_provisioner"></a> [sandbox\_node\_provisioner](#input\_sandbox\_node\_provisioner) | How reducto-sandbox nodes are provisioned: "karpenter" (NodePool + EC2NodeClass in karpenter.tf) or "managed\_node\_group" (EKS managed node group in eks.tf, for clusters that do not run Karpenter). Both boot sandbox\_ami\_id with the same node-type label and reducto.ai/sandbox taint. | `string` | `"karpenter"` | no |
 | <a name="input_sandbox_runsc_path"></a> [sandbox\_runsc\_path](#input\_sandbox\_runsc\_path) | Path of the runsc binary inside sandbox\_ami\_id (containerd-shim-runsc-v1 must be on containerd's PATH in the same image). | `string` | `"/usr/local/bin/runsc"` | no |
@@ -280,7 +283,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 ### Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_cluster_certificate_authority_data"></a> [cluster\_certificate\_authority\_data](#output\_cluster\_certificate\_authority\_data) | Base64 encoded certificate data required to communicate with the cluster |
 | <a name="output_cluster_endpoint"></a> [cluster\_endpoint](#output\_cluster\_endpoint) | Endpoint for EKS control plane |
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | Name of the EKS cluster |
@@ -292,6 +295,7 @@ For upgrade instructions and release notes, see [MIGRATION_GUIDE.md](./MIGRATION
 | <a name="output_db_proxy_endpoint"></a> [db\_proxy\_endpoint](#output\_db\_proxy\_endpoint) | Connection endpoint for the RDS Proxy |
 | <a name="output_elasticache_primary_endpoint"></a> [elasticache\_primary\_endpoint](#output\_elasticache\_primary\_endpoint) | Primary endpoint for the managed Valkey replication group |
 | <a name="output_oidc_provider_arn"></a> [oidc\_provider\_arn](#output\_oidc\_provider\_arn) | ARN of the OIDC Provider for EKS |
+| <a name="output_pi_egress_proxy_url"></a> [pi\_egress\_proxy\_url](#output\_pi\_egress\_proxy\_url) | HTTP\_PROXY/HTTPS\_PROXY value for sandbox pods: the Envoy egress proxy by pinned ClusterIP, since sandbox pods have no DNS |
 | <a name="output_private_subnets"></a> [private\_subnets](#output\_private\_subnets) | List of IDs of private subnets |
 | <a name="output_public_subnets"></a> [public\_subnets](#output\_public\_subnets) | List of IDs of public subnets |
 | <a name="output_reducto_host"></a> [reducto\_host](#output\_reducto\_host) | Hostname where Reducto is accessible |

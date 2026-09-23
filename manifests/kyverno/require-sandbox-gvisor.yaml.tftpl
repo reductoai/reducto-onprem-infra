@@ -9,22 +9,21 @@ metadata:
     policies.kyverno.io/description: >-
       Sandbox pods run untrusted agent code and MUST use the gVisor (runsc)
       runtime for kernel isolation — the reducto-sandbox node taint only controls
-      scheduling, not runtime. Matches pods carrying the controller-set label
-      agents.x-k8s.io/sandbox-name-hash (applied by the agent-sandbox controller,
-      not removable via SandboxClaim additionalPodMetadata) in ANY namespace —
-      no namespace filter, so it follows the controller's pod-create span
-      (var.agent_sandbox_write_namespaces) automatically as sandbox namespaces
-      are added, rather than silently missing a new one. runtimeClassName is a
-      pod-spec field users cannot set through a SandboxClaim, so the requirement
-      cannot be labeled away. Sandbox pods must also set
-      automountServiceAccountToken: false, so that even if a sandbox can reach
-      an API server endpoint (e.g. a public EKS endpoint) it holds no credential
-      to present. Residual: a principal holding the controller token
-      could create a native-kernel pod in a sandbox namespace by omitting the
-      label entirely (the exemption is by label-absence — the super-agent proxy
-      is label-less by design). That pod is still bounded by the namespace's
-      restricted PSS (no privileged/hostPath, runAsNonRoot); full closure needs
-      the proxy in its own namespace + an unconditional gVisor requirement here.
+      scheduling, not runtime. Each rule matches two ways, either one is
+      enough: (1) any pod carrying the controller-set label
+      agents.x-k8s.io/sandbox-name-hash (applied by the agent-sandbox
+      controller, not removable via SandboxClaim additionalPodMetadata) in ANY
+      namespace, so a new sandbox namespace is covered before anyone adds it
+      here; (2) EVERY pod in the sandbox namespaces
+      (var.agent_sandbox_write_namespaces minus agent-sandbox-system), labeled
+      or not, so a principal holding the controller token cannot create a
+      native-kernel pod by omitting the label. Non-sandbox workloads (e.g. the
+      super-agent proxy) must therefore run outside those namespaces.
+      runtimeClassName is a pod-spec field users cannot set through a
+      SandboxClaim, so the requirement cannot be labeled away. Sandbox pods
+      must also set automountServiceAccountToken: false, so that even if a
+      sandbox can reach an API server endpoint (e.g. a public EKS endpoint) it
+      holds no credential to present.
 spec:
   validationFailureAction: Enforce
   # Explicit: an unreachable Kyverno must deny, not silently admit un-sandboxed pods.
@@ -45,6 +44,10 @@ spec:
                 matchExpressions:
                   - key: agents.x-k8s.io/sandbox-name-hash
                     operator: Exists
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              namespaces: ${jsonencode(sandbox_namespaces)}
       validate:
         message: >-
           Sandbox pods must set runtimeClassName: gvisor (kernel isolation for
@@ -62,6 +65,10 @@ spec:
                 matchExpressions:
                   - key: agents.x-k8s.io/sandbox-name-hash
                     operator: Exists
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              namespaces: ${jsonencode(sandbox_namespaces)}
       validate:
         message: >-
           Sandbox pods must set automountServiceAccountToken: false (no

@@ -413,11 +413,22 @@ variable "sandbox_egress_allowlist" {
     port = optional(number, 443)
   }))
   default     = []
-  description = "Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP_PROXY=http://reducto-pi-egress.<pi_egress_namespace>:80). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi_egress_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all."
+  description = "Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP_PROXY=output.pi_egress_proxy_url). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi_egress_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all."
 
   validation {
     condition     = alltrue([for a in var.sandbox_egress_allowlist : can(regex("^([a-z0-9-]+\\.)+[a-z0-9-]+$", a.host)) && a.port >= 1 && a.port <= 65535])
     error_message = "sandbox_egress_allowlist hosts must be lowercase FQDNs (no wildcards, schemes or ports) with port 1-65535."
+  }
+}
+
+variable "pi_egress_proxy_cluster_ip" {
+  type        = string
+  default     = null
+  description = "ClusterIP pinned on the Envoy egress proxy Service, so sandbox pods (which have no DNS) can reach it by address. Must be inside the cluster service CIDR. Default: offset 200 of the service CIDR."
+
+  validation {
+    condition     = var.pi_egress_proxy_cluster_ip == null ? true : can(cidrhost("${var.pi_egress_proxy_cluster_ip}/32", 0))
+    error_message = "pi_egress_proxy_cluster_ip must be an IPv4 address."
   }
 }
 
@@ -428,7 +439,7 @@ variable "sandbox_egress_allow" {
     protocol  = optional(string, "TCP")
   }))
   default     = []
-  description = "In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = \"reducto\", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses."
+  description = "In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = \"reducto\", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses. Sandbox pods have no DNS, so they must address these targets by ClusterIP."
 
   validation {
     condition     = alltrue([for a in var.sandbox_egress_allow : contains(["TCP", "UDP", "SCTP"], a.protocol) && a.port >= 1 && a.port <= 65535])
