@@ -1,0 +1,80 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-sandbox-gvisor
+  annotations:
+    policies.kyverno.io/title: Require gVisor runtime and no SA token for sandbox pods
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/description: >-
+      Sandbox pods run untrusted agent code and MUST use the gVisor (runsc)
+      runtime for kernel isolation — the reducto-sandbox node taint only controls
+      scheduling, not runtime. Each rule matches two ways, either one is
+      enough: (1) any pod carrying the controller-set label
+      agents.x-k8s.io/sandbox-name-hash (applied by the agent-sandbox
+      controller, not removable via SandboxClaim additionalPodMetadata) in ANY
+      namespace, so a new sandbox namespace is covered before anyone adds it
+      here; (2) EVERY pod in the sandbox namespaces
+      (var.agent_sandbox_write_namespaces minus agent-sandbox-system), labeled
+      or not, so a principal holding the controller token cannot create a
+      native-kernel pod by omitting the label. Non-sandbox workloads (e.g. the
+      super-agent proxy) must therefore run outside those namespaces.
+      runtimeClassName is a pod-spec field users cannot set through a
+      SandboxClaim, so the requirement cannot be labeled away. Sandbox pods
+      must also set automountServiceAccountToken: false, so that even if a
+      sandbox can reach an API server endpoint (e.g. a public EKS endpoint) it
+      holds no credential to present.
+spec:
+  validationFailureAction: Enforce
+  # Explicit: an unreachable Kyverno must deny, not silently admit un-sandboxed pods.
+  webhookConfiguration:
+    failurePolicy: Fail
+  # CREATE-only (runtimeClassName is immutable), so background scans add nothing
+  # but re-fire the denial alert on pre-existing pods every scan — keep it off.
+  background: false
+  rules:
+    - name: sandbox-pods-must-use-gvisor
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              # runtimeClassName is immutable — only checked at creation.
+              operations: [CREATE]
+              selector:
+                matchExpressions:
+                  - key: agents.x-k8s.io/sandbox-name-hash
+                    operator: Exists
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              namespaces: ${jsonencode(sandbox_namespaces)}
+      validate:
+        message: >-
+          Sandbox pods must set runtimeClassName: gvisor (kernel isolation for
+          untrusted agent code).
+        pattern:
+          spec:
+            runtimeClassName: gvisor
+    - name: sandbox-pods-must-not-mount-sa-token
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              selector:
+                matchExpressions:
+                  - key: agents.x-k8s.io/sandbox-name-hash
+                    operator: Exists
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              namespaces: ${jsonencode(sandbox_namespaces)}
+      validate:
+        message: >-
+          Sandbox pods must set automountServiceAccountToken: false (no
+          Kubernetes API credential inside untrusted agent code).
+        # A pattern requires the field to be present, so omitting it (K8s
+        # default: true) is denied too.
+        pattern:
+          spec:
+            automountServiceAccountToken: false

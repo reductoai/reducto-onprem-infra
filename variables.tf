@@ -263,3 +263,203 @@ variable "helm_release_timeout" {
   type        = number
   default     = 900 # 15 minutes
 }
+
+# Configuration for the Agent Sandbox substrate (gVisor-isolated sandbox pods,
+# Kyverno enforcement, Envoy Gateway egress). See agent-sandbox.tf, gvisor.tf,
+# kyverno.tf, pi-egress.tf. Off by default so it has zero effect on any other
+# use of this repo.
+
+variable "enable_agent_sandbox" {
+  type        = bool
+  default     = false
+  description = "Whether to install the Agent Sandbox controller/CRDs, gVisor RuntimeClass + sandbox NodePool, and the Pi egress gateway substrate. Requires var.enable_kyverno = true (set it separately) for the require-sandbox-gvisor enforcement policy."
+
+  validation {
+    condition     = !var.enable_agent_sandbox || var.enable_kyverno
+    error_message = "enable_agent_sandbox requires enable_kyverno = true (require-sandbox-gvisor is a Kyverno policy)."
+  }
+
+  # Sandbox pods have no direct public route, but the Envoy egress data plane
+  # does, and a world-open public EKS endpoint is one misconfigured allowlist
+  # entry away. Require it off or restricted to /8 or narrower.
+  validation {
+    condition     = !var.enable_agent_sandbox || !var.cluster_endpoint_public_access || alltrue([for c in var.cluster_endpoint_public_access_cidrs : tonumber(split("/", c)[1]) >= 8])
+    error_message = "enable_agent_sandbox requires cluster_endpoint_public_access = false, or every cluster_endpoint_public_access_cidrs entry to be /8 or narrower (not 0.0.0.0/0 or equivalent)."
+  }
+
+  validation {
+    condition     = !var.enable_agent_sandbox || var.sandbox_ami_id != ""
+    error_message = "enable_agent_sandbox requires sandbox_ami_id: sandbox nodes boot from a hardened AMI with gVisor baked in; runsc is not installed at node boot."
+  }
+}
+
+variable "sandbox_ami_id" {
+  type        = string
+  default     = ""
+  description = "AMI ID for reducto-sandbox Karpenter nodes, built by the internal image pipeline with gVisor (runsc + containerd-shim-runsc-v1) baked in at sandbox_runsc_path. Must be an AL2023-based EKS image (nodeadm bootstrap) for the cluster's Kubernetes version. Required when enable_agent_sandbox = true."
+
+  validation {
+    condition     = var.sandbox_ami_id == "" || can(regex("^ami-[0-9a-f]{8,17}$", var.sandbox_ami_id))
+    error_message = "sandbox_ami_id must look like ami-0123456789abcdef0."
+  }
+}
+
+variable "sandbox_node_provisioner" {
+  type        = string
+  default     = "karpenter"
+  description = "How reducto-sandbox nodes are provisioned: \"karpenter\" (NodePool + EC2NodeClass in karpenter.tf) or \"managed_node_group\" (EKS managed node group in eks.tf, for clusters that do not run Karpenter). Both boot sandbox_ami_id with the same node-type label and reducto.ai/sandbox taint."
+
+  validation {
+    condition     = contains(["karpenter", "managed_node_group"], var.sandbox_node_provisioner)
+    error_message = "sandbox_node_provisioner must be \"karpenter\" or \"managed_node_group\"."
+  }
+}
+
+variable "sandbox_managed_node_group" {
+  type = object({
+    instance_types = optional(list(string), ["m7i.xlarge", "m7i.2xlarge"])
+    min_size       = optional(number, 0)
+    max_size       = optional(number, 10)
+    desired_size   = optional(number, 1)
+    disk_size_gb   = optional(number, 150)
+  })
+  default     = {}
+  description = "Sizing for the reducto-sandbox EKS managed node group (only used when sandbox_node_provisioner = \"managed_node_group\"). On-demand only."
+}
+
+variable "sandbox_runsc_path" {
+  type        = string
+  default     = "/usr/local/bin/runsc"
+  description = "Path of the runsc binary inside sandbox_ami_id (containerd-shim-runsc-v1 must be on containerd's PATH in the same image)."
+}
+
+variable "enable_kyverno" {
+  type        = bool
+  default     = false
+  description = "Whether to install Kyverno and its cluster policies"
+}
+
+variable "kyverno_chart_version" {
+  type        = string
+  default     = "3.9.0"
+  description = "Kyverno Helm chart version"
+}
+
+variable "kyverno_admission_replicas" {
+  type        = number
+  default     = 3
+  description = "Replicas for the Kyverno admission controller. Its webhooks fail closed (failurePolicy: Fail), so it must be HA: Kyverno requires 1 or an odd number >= 3."
+
+  validation {
+    condition     = var.kyverno_admission_replicas == 1 || (var.kyverno_admission_replicas >= 3 && var.kyverno_admission_replicas % 2 == 1)
+    error_message = "kyverno_admission_replicas must be 1 or an odd number >= 3."
+  }
+}
+
+variable "agent_sandbox_write_namespaces" {
+  type        = list(string)
+  default     = ["agent-sandbox-system", "reducto-pi-sandbox"]
+  description = "Namespaces the agent-sandbox controller is allowed to create/update pods, PVCs, services, and network policies in. Must include agent-sandbox-system."
+
+  validation {
+    condition     = contains(var.agent_sandbox_write_namespaces, "agent-sandbox-system")
+    error_message = "agent_sandbox_write_namespaces must include \"agent-sandbox-system\"."
+  }
+
+  validation {
+    condition     = alltrue([for ns in var.agent_sandbox_write_namespaces : !startswith(ns, "kube-") && !contains(["default", "kyverno", "monitoring"], ns)])
+    error_message = "agent_sandbox_write_namespaces must not include kube-*, default, kyverno or monitoring: the controller gets pod/service/networkpolicy write there."
+  }
+}
+
+variable "pi_sandbox_namespace" {
+  type        = string
+  default     = "reducto-pi-sandbox"
+  description = "Namespace where sandbox runtime pods (SandboxClaims) are created. Must be listed in agent_sandbox_write_namespaces."
+
+  validation {
+    condition     = contains(var.agent_sandbox_write_namespaces, var.pi_sandbox_namespace)
+    error_message = "pi_sandbox_namespace must be in agent_sandbox_write_namespaces, or the controller cannot create sandbox pods there."
+  }
+}
+
+variable "pi_sandbox_client_namespace" {
+  type        = string
+  default     = "reducto-pi-sandbox-client"
+  description = "Namespace whose workloads are allowed to reach the sandbox runtime port (e.g. the Reducto API's namespace)."
+}
+
+variable "create_pi_sandbox_client_namespace" {
+  type        = bool
+  default     = true
+  description = "Create pi_sandbox_client_namespace (plus an egress NetworkPolicy allowing only sandbox :8888) as a synthetic verification client. Set false when pi_sandbox_client_namespace is an existing application namespace: Terraform must not own (and on teardown delete) it, and the sandbox-only egress policy would cut the app off from DNS and its dependencies."
+}
+
+variable "pi_egress_namespace" {
+  type        = string
+  default     = "reducto-pi-egress"
+  description = "Namespace containing the Envoy data plane and edge Gateway/routes for the Pi egress stack"
+}
+
+variable "pi_egress_controller_namespace" {
+  type        = string
+  default     = "reducto-pi-egress-system"
+  description = "Namespace containing the Envoy Gateway control plane for the Pi egress stack"
+}
+
+variable "sandbox_egress_allowlist" {
+  type = list(object({
+    host = string
+    port = optional(number, 443)
+  }))
+  default     = []
+  description = "Public hosts sandbox pods may reach, only via the Envoy egress proxy (HTTP_PROXY=output.pi_egress_proxy_url). Each entry renders a Backend + BackendTLSPolicy + HTTPRoute in pi_egress_namespace: Envoy terminates the sandbox's plain-HTTP proxy request and originates TLS to host:port (system CAs). Anything not listed gets no route (404). Empty = sandbox has no public egress at all."
+
+  validation {
+    condition     = alltrue([for a in var.sandbox_egress_allowlist : can(regex("^([a-z0-9-]+\\.)+[a-z0-9-]+$", a.host)) && a.port >= 1 && a.port <= 65535])
+    error_message = "sandbox_egress_allowlist hosts must be lowercase FQDNs (no wildcards, schemes or ports) with port 1-65535."
+  }
+}
+
+variable "pi_egress_proxy_cluster_ip" {
+  type        = string
+  default     = null
+  description = "ClusterIP pinned on the Envoy egress proxy Service, so sandbox pods (which have no DNS) can reach it by address. Must be inside the cluster service CIDR. Default: offset 200 of the service CIDR."
+
+  validation {
+    condition     = var.pi_egress_proxy_cluster_ip == null ? true : can(cidrhost("${var.pi_egress_proxy_cluster_ip}/32", 0))
+    error_message = "pi_egress_proxy_cluster_ip must be an IPv4 address."
+  }
+}
+
+variable "sandbox_egress_allow" {
+  type = list(object({
+    namespace = string
+    port      = number
+    protocol  = optional(string, "TCP")
+  }))
+  default     = []
+  description = "In-cluster destinations sandbox pods may reach, as namespace + port (e.g. [{ namespace = \"reducto\", port = 80 }] for the Reducto API). Namespace-scoped by design: cannot name VPC or public addresses. Sandbox pods have no DNS, so they must address these targets by ClusterIP."
+
+  validation {
+    condition     = alltrue([for a in var.sandbox_egress_allow : contains(["TCP", "UDP", "SCTP"], a.protocol) && a.port >= 1 && a.port <= 65535])
+    error_message = "sandbox_egress_allow entries need protocol TCP/UDP/SCTP and port 1-65535."
+  }
+}
+
+variable "sandbox_blocked_egress_cidrs" {
+  type        = list(string)
+  default     = []
+  description = "Extra CIDRs the Envoy egress data plane must never reach on behalf of sandbox pods (sandbox pods themselves have no IP egress), on top of RFC1918, 100.64.0.0/10 (CGNAT, used by EKS custom networking pod CIDRs), 169.254.0.0/16 (link-local/IMDS), var.vpc_cidr, the subnet CIDRs, and the cluster service CIDR. Add secondary VPC CIDRs, peered VPCs, or on-prem ranges here."
+
+  validation {
+    condition     = alltrue([for c in var.sandbox_blocked_egress_cidrs : can(cidrhost(c, 0)) && !strcontains(c, ":")])
+    error_message = "sandbox_blocked_egress_cidrs must be valid IPv4 CIDRs (the egress NetworkPolicy is IPv4-only; IPv6 egress is denied entirely)."
+  }
+}
+
+variable "envoy_gateway_chart_version" {
+  type        = string
+  default     = "v1.8.1"
+  description = "Envoy Gateway Helm chart version (gateway-helm, oci://docker.io/envoyproxy)"
+}

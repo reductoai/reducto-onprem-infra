@@ -100,3 +100,8 @@ output "region" {
   description = "AWS region where resources are deployed"
   value       = var.region
 }
+
+output "pi_egress_proxy_url" {
+  description = "HTTP_PROXY/HTTPS_PROXY value for sandbox pods: the Envoy egress proxy by pinned ClusterIP, since sandbox pods have no DNS"
+  value       = var.enable_agent_sandbox ? "http://${local.pi_egress_proxy_cluster_ip}:80" : null
+}

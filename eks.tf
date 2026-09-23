@@ -96,17 +96,33 @@ module "eks" {
       addon_version            = "v1.21.1-eksbuild.3"
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa_role.arn
-      configuration_values = jsonencode({
-        resources = {
-          limits = {
-            memory = "256Mi"
+      configuration_values = jsonencode(merge(
+        {
+          resources = {
+            limits = {
+              memory = "256Mi"
+            }
+            requests = {
+              cpu    = "50m"
+              memory = "256Mi"
+            }
           }
-          requests = {
-            cpu    = "50m"
-            memory = "256Mi"
-          }
-        }
-      })
+        },
+        # NetworkPolicy is what stops sandbox pods (agent-sandbox.tf) from
+        # reaching the K8s API server and IMDS. The API server accepts and
+        # stores a NetworkPolicy object either way; it's this flag that turns
+        # on the VPC CNI's network policy agent, the component that actually
+        # enforces it on each node. Without it, the policy exists but every
+        # packet still passes through unfiltered. Gated the same as the rest
+        # of the sandbox substrate so this repo has zero effect on any other
+        # use of it when the feature is off: this flag turns on enforcement
+        # for every NetworkPolicy in the cluster, not just sandbox ones, so
+        # flipping it on unconditionally could silently start enforcing
+        # policies a customer already had that were previously inert.
+        var.enable_agent_sandbox ? {
+          enableNetworkPolicy = "true"
+        } : {},
+      ))
     }
 
     aws-ebs-csi-driver = {
@@ -206,6 +222,49 @@ module "eks" {
           gpu = {
             key    = "nvidia.com/gpu"
             value  = "Exists"
+            effect = "NO_SCHEDULE"
+          }
+        }
+      }
+    } : {},
+    # gVisor sandbox nodes for clusters without Karpenter
+    # (var.sandbox_node_provisioner = "managed_node_group"). Same AMI, label and
+    # taint as the reducto-sandbox Karpenter pool; see gvisor.tf.
+    local.sandbox_mng ? {
+      sandbox = {
+        ami_type                   = "AL2023_x86_64_STANDARD"
+        ami_id                     = var.sandbox_ami_id
+        enable_bootstrap_user_data = true
+        cloudinit_pre_nodeadm = [{
+          content      = local.sandbox_runsc_nodeconfig
+          content_type = "application/node.eks.aws"
+        }]
+        instance_types    = var.sandbox_managed_node_group.instance_types
+        capacity_type     = "ON_DEMAND"
+        enable_monitoring = true
+
+        min_size     = var.sandbox_managed_node_group.min_size
+        max_size     = var.sandbox_managed_node_group.max_size
+        desired_size = var.sandbox_managed_node_group.desired_size
+
+        labels = local.sandbox_node_label
+
+        block_device_mappings = {
+          root = {
+            device_name = "/dev/xvda"
+            ebs = {
+              volume_size           = var.sandbox_managed_node_group.disk_size_gb
+              volume_type           = "gp3"
+              encrypted             = true
+              delete_on_termination = true
+            }
+          }
+        }
+
+        taints = {
+          sandbox = {
+            key    = local.sandbox_node_taint.key
+            value  = local.sandbox_node_taint.value
             effect = "NO_SCHEDULE"
           }
         }

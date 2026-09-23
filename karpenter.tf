@@ -143,3 +143,118 @@ resource "kubectl_manifest" "karpenter_node_pool" {
     module.vpc,
   ]
 }
+
+# Dedicated, tainted node pool for gVisor-isolated agent-sandbox workloads
+# (see gvisor.tf / agent-sandbox.tf); the Karpenter half of
+# var.sandbox_node_provisioner (the managed-node-group half lives in eks.tf).
+# Nodes boot from var.sandbox_ami_id, a
+# hardened AMI with runsc + containerd-shim-runsc-v1 baked in by the internal
+# image pipeline: nothing is downloaded from the internet at node boot, so the
+# node's supply chain is the AMI's, not a public release bucket's. The nodeadm
+# NodeConfig merge only registers the runsc handler with containerd (a no-op
+# if the AMI already ships that config). On-demand only (untrusted-code
+# isolation nodes should not be spot-interruptible mid-task), nitro c/m/r 2-31
+# vCPU, generation >= 7.
+resource "kubectl_manifest" "karpenter_sandbox_node_class" {
+  count     = local.sandbox_karpenter ? 1 : 0
+  wait      = true
+  yaml_body = <<-YAML
+    apiVersion: karpenter.k8s.aws/v1
+    kind: EC2NodeClass
+    metadata:
+      name: reducto-sandbox
+    spec:
+      amiFamily: AL2023
+      amiSelectorTerms:
+      - id: ${var.sandbox_ami_id}
+      blockDeviceMappings:
+        - deviceName: /dev/xvda
+          ebs:
+            volumeSize: 150Gi
+            volumeType: gp3
+            encrypted: true
+      role: ${module.karpenter.node_iam_role_name}
+      detailedMonitoring: true
+      subnetSelectorTerms:
+        - tags:
+            karpenter.sh/discovery: ${var.cluster_name}
+      securityGroupSelectorTerms:
+        - tags:
+            karpenter.sh/discovery: ${var.cluster_name}
+      tags: ${jsonencode(merge(var.tags, { "karpenter.sh/discovery" = var.cluster_name }))}
+      userData: |
+        MIME-Version: 1.0
+        Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+        --BOUNDARY
+        Content-Type: application/node.eks.aws
+
+        ${indent(8, local.sandbox_runsc_nodeconfig)}
+        --BOUNDARY--
+  YAML
+
+  depends_on = [helm_release.karpenter, module.vpc]
+}
+
+resource "kubectl_manifest" "karpenter_sandbox_node_pool" {
+  count     = local.sandbox_karpenter ? 1 : 0
+  wait      = true
+  yaml_body = <<-YAML
+    apiVersion: karpenter.sh/v1
+    kind: NodePool
+    metadata:
+      name: reducto-sandbox
+    spec:
+      disruption:
+        budgets:
+        - nodes: 25%
+        consolidateAfter: 10m
+        # "Balanced" requires a newer Karpenter version than the one this
+        # repo pins (1.8.3); its NodePool CRD only supports WhenEmpty and
+        # WhenEmptyOrUnderutilized. The latter also matches this repo's
+        # existing default NodePool.
+        consolidationPolicy: WhenEmptyOrUnderutilized
+      template:
+        metadata:
+          labels: ${jsonencode(local.sandbox_node_label)}
+        spec:
+          expireAfter: Never
+          nodeClassRef:
+            group: karpenter.k8s.aws
+            kind: EC2NodeClass
+            name: reducto-sandbox
+          requirements:
+            - key: "kubernetes.io/arch"
+              operator: In
+              values: ["amd64"]
+            - key: "karpenter.k8s.aws/instance-category"
+              operator: In
+              values: ["c", "m", "r"]
+            - key: "karpenter.k8s.aws/instance-hypervisor"
+              operator: In
+              values: ["nitro"]
+            - key: "karpenter.k8s.aws/instance-capability-flex"
+              operator: In
+              values: ["false"]
+            - key: "karpenter.k8s.aws/instance-generation"
+              # This Karpenter version's NodePool CRD doesn't support "Gte"
+              # (only Gt/Lt) — Gt "6" is equivalent for an integer field.
+              operator: Gt
+              values: ["6"]
+            - key: "karpenter.k8s.aws/instance-cpu"
+              operator: Gt
+              values: ["1"]
+            - key: "karpenter.k8s.aws/instance-cpu"
+              operator: Lt
+              values: ["32"]
+            - key: "karpenter.sh/capacity-type"
+              operator: In
+              values: ["on-demand"]
+          taints: ${jsonencode([local.sandbox_node_taint])}
+  YAML
+
+  depends_on = [
+    kubectl_manifest.karpenter_sandbox_node_class,
+    module.vpc,
+  ]
+}
