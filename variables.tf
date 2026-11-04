@@ -375,4 +375,9 @@ variable "agent_sandbox_write_namespaces" {
     condition     = !contains(var.agent_sandbox_write_namespaces, "reducto")
     error_message = "agent_sandbox_write_namespaces must not include \"reducto\" (the Reducto release namespace): sandbox namespaces get a deny-all NetworkPolicy with no egress."
   }
+
+  validation {
+    condition     = length(setsubtract(var.agent_sandbox_write_namespaces, ["agent-sandbox-system"])) > 0
+    error_message = "agent_sandbox_write_namespaces needs at least one sandbox namespace besides agent-sandbox-system (default: reducto-agent-sandbox)."
+  }
 }
