@@ -16,6 +16,19 @@ data "aws_iam_policy_document" "reducto" {
       ]
     }
 
+    # The sandbox namespaces (reducto-agent-sandbox by default) also match
+    # reducto*, and they run untrusted agent code. Sandbox pods get no SA
+    # token (Kyverno) and no egress to STS, but nothing there may ever hold
+    # this role: exclude them explicitly. Conditions are ANDed.
+    dynamic "condition" {
+      for_each = var.enable_agent_sandbox ? [1] : []
+      content {
+        test     = "StringNotLike"
+        variable = "${module.eks.oidc_provider}:sub"
+        values   = [for ns in sort(local.agent_sandbox_namespaces) : "system:serviceaccount:${ns}:*"]
+      }
+    }
+
     condition {
       test     = "StringLike"
       variable = "${module.eks.oidc_provider}:aud"
