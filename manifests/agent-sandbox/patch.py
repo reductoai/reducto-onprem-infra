@@ -20,7 +20,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import sys
+import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,10 +31,13 @@ from typing import NoReturn, Protocol
 
 import yaml
 
-# v0.5.3 is a deliberate pin (v0.5.4 shipped 2026-07-30, after this was cut).
-# To bump: edit VERSION, refresh ASSET_SHA256 + CONTROLLER_IMAGE below from the
-# new release, run `patch.py`, and diff the rendered bundles.
-VERSION = "v0.5.3"
+# To bump: edit VERSION, refresh ASSET_SHA256 + CONTROLLER_IMAGE_DIGESTS below
+# from the new release, run `patch.py`, diff the rendered bundles and read the
+# release notes' "Breaking Changes". Renovate tracks the tag through the marker
+# below (renovate.json custom manager); its PR fails `--check` on purpose until
+# the sha256s and digest are refreshed.
+# renovate: datasource=github-releases depName=kubernetes-sigs/agent-sandbox
+VERSION = "v1.0.7"
 BASE_URL = (
     f"https://github.com/kubernetes-sigs/agent-sandbox/releases/download/{VERSION}"
 )
@@ -42,8 +48,8 @@ HERE = Path(__file__).parent
 # each asset so a tampered or silently-changed upstream fails the fetch loudly
 # instead of vendoring different YAML on the next regen. Keyed by asset name.
 ASSET_SHA256: dict[str, str] = {
-    "sandbox.yaml": "50f54b0e746376455ae6bb8b90b436bdd8798e1296cff0d72b6267bbeb858e3c",
-    "extensions.yaml": "3379a7725f94b163d51049aebe941c8e4e969f9669015472664a5a0f7fa06c6b",
+    "sandbox.yaml": "437e6875cf7dfbd1c1230de3641f73bb9dad595a581366ef7f98f9b2813dd686",
+    "extensions.yaml": "f336a8056a86c38c7631ce8fb5966fb6c2a93c9c6f8f2c7c511ead11a8dccf7f",
 }
 
 # Controller image pinned by digest (immutable) while keeping the tag readable.
@@ -53,16 +59,16 @@ ASSET_SHA256: dict[str, str] = {
 # here instead. Resolve per bump with:
 #   crane digest registry.k8s.io/agent-sandbox/agent-sandbox-controller:<VERSION>
 CONTROLLER_IMAGE_DIGESTS: dict[str, str] = {
-    "v0.5.3": "sha256:ba381b4e0c86cca597d5c5a31860e38d30ec1c45e0a7a8328bb2799c87d059c0",
+    "v1.0.7": "sha256:f254384c24605436ce35d7077427559e24bda8f5691cff5a54a4c2e030d81083",
 }
 
 # Vendored filename -> upstream release asset it is downloaded from. Upstream
 # ships the core bundle as `sandbox.yaml` (renamed from `manifest.yaml` in
-# v0.5.3); we vendor it as `core.yaml` to match how it is referenced everywhere
+# v0.5.2); we vendor it as `core.yaml` to match how it is referenced everywhere
 # (kubectl_manifest.agent_sandbox_core). The exact download URLs (for VERSION
 # above) are:
-#   core.yaml:       https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.3/sandbox.yaml
-#   extensions.yaml: https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v0.5.3/extensions.yaml
+#   core.yaml:       https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v1.0.7/sandbox.yaml
+#   extensions.yaml: https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v1.0.7/extensions.yaml
 BUNDLES: dict[str, str] = {
     "core.yaml": "sandbox.yaml",
     "extensions.yaml": "extensions.yaml",
@@ -105,6 +111,17 @@ def _merge(base: Json, overlay: Json) -> Json:
         for key, value in overlay.items():
             merged[key] = _merge(merged[key], value) if key in merged else value
         return merged
+    if (
+        isinstance(base, list)
+        and isinstance(overlay, list)
+        and base
+        and not _all_named(base)
+    ):
+        # Replacing an upstream list wholesale would drop its entries with no
+        # trace in the rendered diff (before and after both show only ours).
+        _die(
+            f"_merge: upstream now ships a list we would replace blindly: {base!r:.120}"
+        )
     if (
         isinstance(base, list)
         and isinstance(overlay, list)
@@ -254,16 +271,65 @@ class SetRuleVerbs:
 # Restricted-PSS hardening for the controller: agent-sandbox-system enforces the
 # `restricted` Pod Security Standard, and upstream ships the controller with no
 # securityContext, so it is rejected at admission without this. The /tmp
-# emptyDir is required because readOnlyRootFilesystem otherwise crashes the
-# controller — it writes webhook certs to /tmp/k8s-webhook-server.
+# emptyDir keeps a writable scratch dir under readOnlyRootFilesystem (v1.0 has
+# no webhook, so it no longer writes certs there).
 #
 # dnsConfig cuts DNS amplification (mirrors the reducto.dnsConfig helm helper):
 # ndots:2 skips the search-domain walk for external names, no-aaaa suppresses
 # the wasted AAAA query on this IPv4 cluster (glibc >=2.36; ignored otherwise).
+#
+# HA: two replicas behind leader election (upstream ships one). A rollout or a
+# node disruption hands the lease over in seconds instead of leaving claims
+# waiting for a single pod to come back; maxUnavailable 0 keeps one replica up
+# through the rollout and the PDB in agent-sandbox.tf keeps one up through
+# Karpenter drift. Spread across nodes (hard) and zones (soft). On the
+# on-demand system pool (kyverno's placement): the app pools mix in spot, and
+# one reclaim wave can take both replicas, which a PDB does not stop.
+#
+# On-prem: the only change from the hosted copy (reductoai/api
+# terragrunt/modules/aws-eks-addons/manifests/agent-sandbox/patch.py) is the
+# system-node label. This repo's `system` managed node group is labeled
+# worker-type=system (eks.tf), not node-type=system.
 _CONTROLLER_HARDENING: Doc = {
     "spec": {
+        "replicas": 2,
+        "strategy": {
+            "type": "RollingUpdate",
+            "rollingUpdate": {"maxUnavailable": 0, "maxSurge": 1},
+        },
         "template": {
             "spec": {
+                # At priority 0, ingress-nginx can preempt it on the system pool.
+                "priorityClassName": "system-cluster-critical",
+                "nodeSelector": {"worker-type": "system"},
+                "tolerations": [
+                    {
+                        "key": "CriticalAddonsOnly",
+                        "operator": "Exists",
+                        "effect": "NoSchedule",
+                    }
+                ],
+                "topologySpreadConstraints": [
+                    {
+                        "maxSkew": 1,
+                        # minDomains: with one eligible node both replicas would otherwise
+                        # satisfy maxSkew on that single node.
+                        "minDomains": 2,
+                        "topologyKey": "kubernetes.io/hostname",
+                        "whenUnsatisfiable": "DoNotSchedule",
+                        "labelSelector": {
+                            "matchLabels": {"app": "agent-sandbox-controller"}
+                        },
+                    },
+                    {
+                        "maxSkew": 1,
+                        "topologyKey": "topology.kubernetes.io/zone",
+                        "whenUnsatisfiable": "ScheduleAnyway",
+                        "labelSelector": {
+                            "matchLabels": {"app": "agent-sandbox-controller"}
+                        },
+                    },
+                ],
                 "dnsConfig": {
                     "options": [
                         {"name": "ndots", "value": "2"},
@@ -278,17 +344,40 @@ _CONTROLLER_HARDENING: Doc = {
                     {
                         "name": "agent-sandbox-controller",
                         "image": CONTROLLER_IMAGE,
+                        # Memory req==lim so a node never overcommits; CPU request
+                        # only (Burstable by design: a CPU limit would CFS-throttle
+                        # the leader on a warm-pool refill). Upstream ships neither
+                        # resources nor probes; controller-runtime serves /healthz +
+                        # /readyz on 8081.
+                        "resources": {
+                            "requests": {"cpu": "200m", "memory": "512Mi"},
+                            "limits": {"memory": "512Mi"},
+                        },
                         "securityContext": {
                             "allowPrivilegeEscalation": False,
                             "readOnlyRootFilesystem": True,
                             "capabilities": {"drop": ["ALL"]},
+                        },
+                        "startupProbe": {
+                            "httpGet": {"path": "/healthz", "port": "healthz"},
+                            "periodSeconds": 5,
+                            "failureThreshold": 30,
+                        },
+                        "livenessProbe": {
+                            "httpGet": {"path": "/healthz", "port": "healthz"},
+                            "periodSeconds": 20,
+                            "failureThreshold": 3,
+                        },
+                        "readinessProbe": {
+                            "httpGet": {"path": "/readyz", "port": "healthz"},
+                            "periodSeconds": 10,
                         },
                         "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
                     }
                 ],
                 "volumes": [{"name": "tmp", "emptyDir": {}}],
             }
-        }
+        },
     }
 }
 
@@ -349,14 +438,39 @@ PATCHES: list[Patch] = [
     ),
 ]
 
+if _unknown := {patch.file for patch in PATCHES} - BUNDLES.keys():
+    _die(f"PATCHES target bundle(s) that do not exist: {sorted(_unknown)}")
+
+# Upstream bundles are ~200 KB; anything larger is not the asset we pinned.
+MAX_ASSET_BYTES = 4 * 1024 * 1024
+
+
+def _download(url: str) -> bytes:
+    """Three attempts with backoff: a GitHub hiccup must not red the bump PR
+    this check exists to gate."""
+    last: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as resp:
+                return resp.read(MAX_ASSET_BYTES + 1)
+        # URLError covers connect failures; a body cut mid-read surfaces as
+        # IncompleteRead/HTTPException or a bare OSError (connection reset).
+        except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
+            last = e
+            time.sleep(2**attempt)
+    _die(f"{url}: download failed after 3 attempts: {last}")
+
 
 def _fetch(asset: str) -> str:
     expected = ASSET_SHA256.get(asset)
     if expected is None:
         _die(f"{asset}: no pinned sha256 in ASSET_SHA256 — add one before vendoring")
     url = f"{BASE_URL}/{asset}"
-    with urllib.request.urlopen(url, timeout=30) as resp:
-        data = resp.read()
+    data = _download(url)
+    if len(data) > MAX_ASSET_BYTES:
+        _die(
+            f"{asset}: response exceeds {MAX_ASSET_BYTES} bytes — not the pinned asset"
+        )
     digest = hashlib.sha256(data).hexdigest()
     if digest != expected:
         _die(
@@ -366,11 +480,42 @@ def _fetch(asset: str) -> str:
     return data.decode()
 
 
+def _check_controller(docs: list[Doc]) -> None:
+    """Memory request must equal its limit (an upstream memory request we do not
+    also cap would make the pod overcommit the node) and CPU must stay unlimited
+    (a CPU limit throttles the leader under load)."""
+    for doc in docs:
+        if _doc_id(doc) != ("Deployment", "agent-sandbox-controller"):
+            continue
+        spec = doc.get("spec")
+        template = spec.get("template") if isinstance(spec, dict) else None
+        pod = template.get("spec") if isinstance(template, dict) else None
+        containers = pod.get("containers") if isinstance(pod, dict) else None
+        if not isinstance(containers, list) or len(containers) != 1:
+            _die("controller Deployment must render exactly one container")
+        container = containers[0]
+        resources = container.get("resources") if isinstance(container, dict) else None
+        requests = resources.get("requests") if isinstance(resources, dict) else None
+        limits = resources.get("limits") if isinstance(resources, dict) else None
+        if (
+            not isinstance(requests, dict)
+            or not isinstance(limits, dict)
+            or "memory" not in limits
+            or requests.get("memory") != limits.get("memory")
+            or "cpu" in limits
+        ):
+            _die(
+                f"controller resources must set memory request == limit and no cpu limit: {resources!r}"
+            )
+
+
 def _render(file: str) -> str:
     docs = [d for d in yaml.safe_load_all(_fetch(BUNDLES[file])) if d is not None]
     for patch in PATCHES:
         if patch.file == file:
             docs = patch.apply(docs)
+    if file == "extensions.yaml":
+        _check_controller(docs)
     return yaml.safe_dump_all(docs, sort_keys=False, default_flow_style=False)
 
 

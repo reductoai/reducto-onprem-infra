@@ -1,28 +1,33 @@
 # kubernetes-sigs/agent-sandbox — isolated, stateful, singleton workloads for
-# AI agent runtimes. Vendored from the v0.5.3 GitHub release (see
-# manifests/agent-sandbox/patch.py) to keep deploys deterministic.
+# AI agent runtimes. Vendored from the v1.0.7 GitHub release (see
+# manifests/agent-sandbox/patch.py) to keep deploys deterministic. Same
+# version, bundles and patches as the hosted clusters (reductoai/api
+# terragrunt/modules/aws-eks-addons/manifests/agent-sandbox/); the only on-prem
+# difference is the system-node label in patch.py.
 #
 # The two vendored bundles (manifests/agent-sandbox/{core,extensions}.yaml)
 # are NOT hand-edited — they are upstream release assets with a fixed,
 # declared set of modifications applied by patch.py. That script's PATCHES
 # list is the authoritative record of every change made to upstream. To bump
-# the version: edit VERSION in patch.py and run
+# the version: edit VERSION, ASSET_SHA256 and CONTROLLER_IMAGE_DIGESTS in
+# patch.py and run
 # `uv run --python 3.12 --with pyyaml python3 manifests/agent-sandbox/patch.py`,
 # then `--check` to verify no drift.
 #
-#   core.yaml       — Sandbox CRD, RBAC, the two Services (controller +
-#     webhook), conversion webhook. Patches strip the leading `Namespace` doc
+#   core.yaml       — Sandbox CRD (agents.x-k8s.io/v1beta1), RBAC, the
+#     controller metrics Service. Patches strip the leading `Namespace` doc
 #     (owned by kubectl_manifest.agent_sandbox_namespace below, so it applies
 #     first) and the `agent-sandbox-controller` Deployment (superseded by the
 #     identically-named one in extensions.yaml).
-#   extensions.yaml — SandboxClaim / SandboxWarmPool / SandboxTemplate CRDs,
-#     the sole controller Deployment, extension RBAC. The patch adds a
-#     restricted-PSS securityContext + writable /tmp emptyDir to the
-#     controller.
+#   extensions.yaml — SandboxClaim / SandboxWarmPool / SandboxTemplate CRDs
+#     (extensions.agents.x-k8s.io/v1beta1), the sole controller Deployment
+#     (run with --extensions), extension RBAC. The patch adds a
+#     restricted-PSS securityContext, a writable /tmp emptyDir, two replicas on
+#     the system nodes, resources and probes to the controller.
 #
-# No published Helm chart (assets are these two manifests only). No
-# cert-manager dependency: the controller self-injects the conversion webhook
-# caBundle.
+# No published Helm chart (assets are these two manifests only). v1.0 CRDs
+# serve only v1beta1 and have no conversion webhook, so the controller needs
+# no certificate and no cert-manager.
 
 locals {
   agent_sandbox_pss_labels = {
@@ -66,8 +71,8 @@ resource "kubectl_manifest" "agent_sandbox_core" {
   depends_on = [kubectl_manifest.agent_sandbox_namespace]
 }
 
-# Extensions depend on the core install: their controller and the conversion
-# webhook for the extension CRDs are served by the core controller.
+# Extensions depend on the core install: the CRDs and core RBAC apply before
+# the sole controller Deployment, which lives in extensions.yaml.
 data "kubectl_file_documents" "agent_sandbox_ext" {
   count   = var.enable_agent_sandbox ? 1 : 0
   content = file("${path.module}/manifests/agent-sandbox/extensions.yaml")
@@ -82,6 +87,33 @@ resource "kubectl_manifest" "agent_sandbox_ext" {
   wait              = true
 
   depends_on = [kubectl_manifest.agent_sandbox_core]
+}
+
+# Two controller replicas (patch.py) behind leader election; keep one up through
+# node rotations so claims never wait for a cold start.
+resource "kubectl_manifest" "agent_sandbox_controller_pdb" {
+  count = var.enable_agent_sandbox ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "policy/v1"
+    kind       = "PodDisruptionBudget"
+    metadata = {
+      name      = "agent-sandbox-controller"
+      namespace = "agent-sandbox-system"
+    }
+    spec = {
+      # maxUnavailable, not minAvailable: still evictable if scaled to 1.
+      # AlwaysAllow: two CrashLooping replicas must not pin their nodes.
+      maxUnavailable             = 1
+      unhealthyPodEvictionPolicy = "AlwaysAllow"
+      selector                   = { matchLabels = { app = "agent-sandbox-controller" } }
+    }
+  })
+
+  server_side_apply = true
+  wait              = true
+
+  depends_on = [kubectl_manifest.agent_sandbox_namespace]
 }
 
 # Every sandbox write-namespace must exist before its Role/RoleBinding
