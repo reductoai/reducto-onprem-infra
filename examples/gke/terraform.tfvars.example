@@ -1,0 +1,16 @@
+project_id       = "my-project"
+cluster_name     = "reducto"
+cluster_location = "us-central1"
+
+# A new /20 the subnet does not use yet: GKE adds it as a secondary range.
+# Each node takes a /24 at the default 110 max pods, so a /20 holds 16 nodes.
+sandbox_pod_range = {
+  name   = "reducto-sandbox-pods"
+  cidr   = "10.96.0.0/20"
+  create = true
+}
+
+# The -agent-sandbox image in Artifact Registry of this project:
+# node_service_account_extra_roles = ["roles/artifactregistry.reader"]
+
+bucket_name = "my-reducto-bucket"

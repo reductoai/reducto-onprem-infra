@@ -1,0 +1,136 @@
+# Admission backstops for the agent sandbox, as native ValidatingAdmissionPolicy
+# (admissionregistration.k8s.io/v1, GA in Kubernetes 1.30). They replace the
+# hosted Kyverno policies require-sandbox-gvisor and
+# require-sandbox-template-unmanaged so a customer cluster needs no Kyverno:
+# VAP runs in the API server (no webhook to be down, no namespace
+# exclusions), and every rule here is a plain field check that CEL expresses.
+#
+# All three are fail-closed (failurePolicy: Fail) and use no matchConditions, so
+# an expression error can only affect the objects their bindings select.
+# Denials are also written as audit annotations (validationActions: Audit).
+
+# 1. Every pod in the sandbox namespace, and every pod anywhere that carries the
+#    controller-set label agents.x-k8s.io/sandbox-name-hash, must:
+#    - run under the gVisor RuntimeClass (kernel isolation for untrusted code);
+#    - mount no ServiceAccount token;
+#    - select the dedicated sandbox pool (the RuntimeClass alone would admit any
+#      gVisor node of the cluster);
+#    - use no host namespace (the namespace PSS restricted label also forbids
+#      this; the label-selected binding reaches namespaces without that label).
+#    All four fields are immutable on a pod, so CREATE is enough.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: agent-sandbox-pod-isolation
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  validations:
+    - expression: "has(object.spec.runtimeClassName) && object.spec.runtimeClassName == '${runtime_class_name}'"
+      messageExpression: "'agent-sandbox pods must set runtimeClassName: ${runtime_class_name} (namespace ' + request.namespace + ').'"
+    - expression: "has(object.spec.automountServiceAccountToken) && object.spec.automountServiceAccountToken == false"
+      message: "agent-sandbox pods must set automountServiceAccountToken: false."
+    - expression: "has(object.spec.nodeSelector) && '${node_label_key}' in object.spec.nodeSelector && object.spec.nodeSelector['${node_label_key}'] == '${node_label_value}'"
+      message: "agent-sandbox pods must set nodeSelector ${node_label_key}: ${node_label_value} (the dedicated GKE Sandbox pool)."
+    - expression: "!(has(object.spec.hostNetwork) && object.spec.hostNetwork) && !(has(object.spec.hostPID) && object.spec.hostPID) && !(has(object.spec.hostIPC) && object.spec.hostIPC)"
+      message: "agent-sandbox pods must not use hostNetwork, hostPID, or hostIPC."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agent-sandbox-pod-isolation-namespace
+spec:
+  policyName: agent-sandbox-pod-isolation
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ${sandbox_namespace}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agent-sandbox-pod-isolation-labeled
+spec:
+  policyName: agent-sandbox-pod-isolation
+  validationActions: [Deny, Audit]
+  matchResources:
+    objectSelector:
+      matchExpressions:
+        - key: agents.x-k8s.io/sandbox-name-hash
+          operator: Exists
+---
+# 2. SandboxTemplates in the sandbox namespace must set
+#    networkPolicyManagement: Unmanaged. In Managed mode (the CRD default,
+#    applied before admission) the controller creates its own NetworkPolicy
+#    with an egress rule, which opens egress (policies add up) and makes the
+#    agent service refuse to start. The chart renders Unmanaged.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: agent-sandbox-template-unmanaged
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["extensions.agents.x-k8s.io"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["sandboxtemplates"]
+  validations:
+    - expression: "has(object.spec.networkPolicyManagement) && object.spec.networkPolicyManagement == 'Unmanaged'"
+      message: "SandboxTemplates in the sandbox namespace must set spec.networkPolicyManagement: Unmanaged. The namespace allows no egress."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agent-sandbox-template-unmanaged
+spec:
+  policyName: agent-sandbox-template-unmanaged
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ${sandbox_namespace}
+---
+# 3. No egress allow can enter the sandbox namespace: a NetworkPolicy with any
+#    egress rule is denied, and so is any GKE FQDNNetworkPolicy (an egress
+#    allow by definition; networking.gke.io, only served when FQDN network
+#    policy is enabled). Ingress rules stay allowed: the chart's
+#    <release>-agent-sandbox-ingress is the namespace's only allow.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: agent-sandbox-namespace-no-egress
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["networking.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["networkpolicies"]
+      - apiGroups: ["networking.gke.io"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["fqdnnetworkpolicies"]
+  validations:
+    - expression: "request.resource.group == 'networking.k8s.io' && (!has(object.spec.egress) || size(object.spec.egress) == 0)"
+      messageExpression: "'The sandbox namespace allows no egress: ' + request.resource.resource + ' ' + object.metadata.name + ' has an egress rule (or is an FQDNNetworkPolicy).'"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: agent-sandbox-namespace-no-egress
+spec:
+  policyName: agent-sandbox-namespace-no-egress
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ${sandbox_namespace}

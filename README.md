@@ -15,6 +15,8 @@ The project creates [Helm Release](./reducto-helm-release.tf) for Reducto on EKS
 6. [AWS Load balancer controller](./aws-load-balancer-controller.tf) or [Ingress Nginx](./ingress-nginx-controller.tf) (however you can use any ingress controller)
 
 This project demonstrates fully working cluster that's needed to run Reducto.
+
+GKE: the Deep Extract agent-sandbox prerequisites (gVisor node pool, agent-sandbox controller, admission policies, Workload Identity) for an existing GKE Standard cluster are a separate module, [`modules/agent-sandbox-gke`](./modules/agent-sandbox-gke). See [docs/install/gke-agent-sandbox.md](./docs/install/gke-agent-sandbox.md) (preview).
 Cloudflare is not a requirement, however its used here to setup TLS along with cert-manager.
 
 Set `enable_elasticache = true` to provision a private, TLS-enabled,
