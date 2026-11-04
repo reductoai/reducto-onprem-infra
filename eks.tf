@@ -235,13 +235,11 @@ module "eks" {
         ami_type                   = "AL2023_x86_64_STANDARD"
         ami_id                     = var.sandbox_ami_id
         enable_bootstrap_user_data = true
-        cloudinit_pre_nodeadm = [{
-          content      = local.sandbox_runsc_nodeconfig
-          content_type = "application/node.eks.aws"
-        }]
-        instance_types    = var.sandbox_managed_node_group.instance_types
-        capacity_type     = "ON_DEMAND"
-        enable_monitoring = true
+        # runsc NodeConfig + node firewall; see gvisor.tf.
+        cloudinit_pre_nodeadm = local.sandbox_user_data_parts
+        instance_types        = var.sandbox_managed_node_group.instance_types
+        capacity_type         = "ON_DEMAND"
+        enable_monitoring     = true
 
         min_size     = var.sandbox_managed_node_group.min_size
         max_size     = var.sandbox_managed_node_group.max_size

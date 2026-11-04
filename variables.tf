@@ -325,6 +325,12 @@ variable "sandbox_runsc_path" {
   description = "Path of the runsc binary inside sandbox_ami_id (containerd-shim-runsc-v1 must be on containerd's PATH in the same image)."
 }
 
+variable "enable_sandbox_node_firewall" {
+  type        = bool
+  default     = true
+  description = "Add a host firewall rule to the reducto-sandbox nodes' user data (the hosted sandbox-node-firewall unit): drop new connections from pod veths (eni*) to the node's own addresses. Closes the path from a sandbox pod to the host-network ports of its node (kubelet, sshd, kube-proxy, node-exporter, aws-node), which NetworkPolicy on EKS does not block. It also blocks every other node-local endpoint for any pod on these nodes: EKS Pod Identity (169.254.170.23), a NodeLocal DNSCache, and agents reached at status.hostIP. Changing it replaces the sandbox nodes (EC2NodeClass drift / launch template update)."
+}
+
 variable "enable_kyverno" {
   type        = bool
   default     = false
