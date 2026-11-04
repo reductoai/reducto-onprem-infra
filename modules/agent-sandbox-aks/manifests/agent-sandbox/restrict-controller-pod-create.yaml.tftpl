@@ -1,0 +1,58 @@
+# Fail-closed backstop for the agent-sandbox controller SA: it may create/update
+# pods ONLY in the sandbox write-namespaces. The tight boundary is RBAC (patch.py
+# narrows both ClusterRoles to read-only cluster-wide; the namespaced Role in
+# agent-sandbox.tf grants pod write only in ${allowlist}); this independently
+# denies pod-create everywhere else — so even if the RBAC narrowing regressed, a
+# harvested controller token could not plant a pod in a privileged namespace
+# (kube-system, karpenter, kyverno, cert-manager, ...) via that namespace's own
+# high-privilege SA.
+#
+# A ValidatingAdmissionPolicy, NOT a Kyverno ClusterPolicy, on purpose: Kyverno's
+# chart defaults exclude kube-system / kube-public / kube-node-lease from BOTH the
+# admission webhook namespaceSelector AND config.resourceFilters, so a Kyverno
+# policy is a silent no-op there — exactly the namespaces this backstop most needs.
+# VAP is API-server-native (no webhook, no resourceFilters), fail-closed, and
+# the validation only ever runs for the controller SA. Note matchConditions ARE
+# evaluated for every pod admission cluster-wide, and per the VAP spec a
+# matchCondition that *errors* is resolved by failurePolicy — so with Fail an
+# erroring matchCondition would deny all pod admission, not just this SA's. The
+# current condition can't error (request.userInfo.username is always populated),
+# so Fail is correct; any matchCondition added here MUST be error-free by
+# construction (no optional fields like object.metadata.labels[...] / authorizer).
+# Allowlist inversion (deny unless namespace in the list) fails closed on drift:
+# a new sandbox namespace added to var.agent_sandbox_write_namespaces is a visible
+# deny until it is added here too (both render from the same variable).
+#
+# Denials surface as API-server audit annotations (validationActions: Audit); a
+# metric alert would need apiserver VAP metrics scraped (not wired on these
+# clusters yet).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: restrict-controller-pod-create
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      # pods/ephemeralcontainers (an UPDATE on an existing pod) is the cheapest
+      # way to inject code into a running privileged pod without creating one, and
+      # it is NOT covered by the namespaced Role's `pods` grant — so if the
+      # ClusterRole ever regains pod write, this VAP is the only thing left.
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods", "pods/ephemeralcontainers"]
+  matchConditions:
+    - name: only-agent-sandbox-controller
+      expression: "request.userInfo.username == 'system:serviceaccount:agent-sandbox-system:agent-sandbox-controller'"
+  validations:
+    - expression: "request.namespace in ${allowlist}"
+      messageExpression: "'agent-sandbox-controller may not create or modify pods in namespace ' + request.namespace + ' — only the sandbox namespaces are permitted.'"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: restrict-controller-pod-create
+spec:
+  policyName: restrict-controller-pod-create
+  validationActions: [Deny, Audit]
