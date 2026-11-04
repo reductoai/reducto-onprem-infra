@@ -182,15 +182,10 @@ resource "kubectl_manifest" "karpenter_sandbox_node_class" {
         - tags:
             karpenter.sh/discovery: ${var.cluster_name}
       tags: ${jsonencode(merge(var.tags, { "karpenter.sh/discovery" = var.cluster_name }))}
-      userData: |
-        MIME-Version: 1.0
-        Content-Type: multipart/mixed; boundary="BOUNDARY"
-
-        --BOUNDARY
-        Content-Type: application/node.eks.aws
-
-        ${indent(8, local.sandbox_runsc_nodeconfig)}
-        --BOUNDARY--
+      # JSON-quoted: a flush heredoc does not re-indent interpolated lines, so
+      # embedding the multi-line MIME document as a YAML block would shift
+      # every line after the first (and break the NodeConfig).
+      userData: ${jsonencode(local.sandbox_karpenter_user_data)}
   YAML
 
   depends_on = [helm_release.karpenter, module.vpc]

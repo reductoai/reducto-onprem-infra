@@ -35,6 +35,21 @@ locals {
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runsc.options]
             BinaryName = '${var.sandbox_runsc_path}'
   EOT
+
+  # EC2NodeClass userData for the Karpenter sandbox pool (karpenter.tf).
+  # Karpenter merges its own NodeConfig (cluster endpoint, CA, ...) with these
+  # parts. The managed node group passes the same parts via
+  # cloudinit_pre_nodeadm (eks.tf).
+  sandbox_karpenter_user_data = <<-EOT
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+    --BOUNDARY
+    Content-Type: application/node.eks.aws
+
+    ${local.sandbox_runsc_nodeconfig}
+    --BOUNDARY--
+  EOT
 }
 
 resource "kubectl_manifest" "gvisor" {
