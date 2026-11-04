@@ -24,20 +24,17 @@
 locals {
   identity_name = coalesce(var.identity_name, "${var.cluster_name}-reducto-storage")
 
-  # "<ns>/<sa>" -> federated credential name (<=120 chars, [A-Za-z0-9-_]).
-  federated_subjects = {
-    for s in var.workload_identity_service_accounts :
-    substr(replace(replace(s, "/", "-"), ".", "-"), 0, 120) => "system:serviceaccount:${split("/", s)[0]}:${split("/", s)[1]}"
-  }
+  # The chart's worker KSA: <release>-reducto in the release namespace.
+  worker_subject = "system:serviceaccount:${var.reducto_namespace}:${var.worker_service_account_name}"
 
   # ARM scope of a container: <account id>/blobServices/default/containers/<name>.
-  storage_container_scopes = var.enable_workload_identity ? {
+  storage_container_scopes = var.enable_worker_workload_identity ? {
     for c in var.storage_container_names : c => "${var.storage_account_id}/blobServices/default/containers/${c}"
   } : {}
 }
 
 resource "azurerm_user_assigned_identity" "reducto_storage" {
-  count = var.enable_workload_identity ? 1 : 0
+  count = var.enable_worker_workload_identity ? 1 : 0
 
   name                = local.identity_name
   resource_group_name = coalesce(var.identity_resource_group_name, var.cluster_resource_group_name)
@@ -47,7 +44,7 @@ resource "azurerm_user_assigned_identity" "reducto_storage" {
   lifecycle {
     precondition {
       condition     = var.storage_account_id != null && length(var.storage_container_names) > 0
-      error_message = "enable_workload_identity needs storage_account_id and at least one storage_container_names entry."
+      error_message = "enable_worker_workload_identity needs storage_account_id and at least one storage_container_names entry."
     }
     precondition {
       condition     = var.storage_account_id == null || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.Storage/storageAccounts/[^/]+$", var.storage_account_id))
@@ -57,17 +54,17 @@ resource "azurerm_user_assigned_identity" "reducto_storage" {
 }
 
 resource "azurerm_federated_identity_credential" "reducto_storage" {
-  for_each = var.enable_workload_identity ? local.federated_subjects : {}
+  count = var.enable_worker_workload_identity ? 1 : 0
 
-  name                      = each.key
+  name                      = "${var.reducto_namespace}-${var.worker_service_account_name}"
   user_assigned_identity_id = azurerm_user_assigned_identity.reducto_storage[0].id
   issuer                    = data.azapi_resource.cluster.output.oidc_issuer_url
-  subject                   = each.value
+  subject                   = local.worker_subject
   audience                  = [var.workload_identity_audience]
 }
 
 resource "azurerm_role_assignment" "blob_delegator" {
-  count = var.enable_workload_identity ? 1 : 0
+  count = var.enable_worker_workload_identity ? 1 : 0
 
   scope                = var.storage_account_id
   role_definition_name = "Storage Blob Delegator"

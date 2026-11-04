@@ -1,10 +1,10 @@
 # Fail-closed backstop for the agent-sandbox controller SA: it may create/update
 # pods ONLY in the sandbox write-namespaces. The tight boundary is RBAC (patch.py
 # narrows both ClusterRoles to read-only cluster-wide; the namespaced Role in
-# agent-sandbox.tf grants pod write only in ${allowlist}); this independently
+# controller.tf grants pod write only in ${allowlist}); this independently
 # denies pod-create everywhere else — so even if the RBAC narrowing regressed, a
 # harvested controller token could not plant a pod in a privileged namespace
-# (kube-system, karpenter, kyverno, cert-manager, ...) via that namespace's own
+# (kube-system, gke-managed-*, gmp-system, ...) via that namespace's own
 # high-privilege SA.
 #
 # A ValidatingAdmissionPolicy, NOT a Kyverno ClusterPolicy, on purpose: Kyverno's
@@ -20,7 +20,7 @@
 # so Fail is correct; any matchCondition added here MUST be error-free by
 # construction (no optional fields like object.metadata.labels[...] / authorizer).
 # Allowlist inversion (deny unless namespace in the list) fails closed on drift:
-# a new sandbox namespace added to var.agent_sandbox_write_namespaces is a visible
+# a new sandbox namespace added to var.sandbox_namespace is a visible
 # deny until it is added here too (both render from the same variable).
 #
 # Denials surface as API-server audit annotations (validationActions: Audit); a

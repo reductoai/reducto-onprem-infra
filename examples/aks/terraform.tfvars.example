@@ -1,0 +1,15 @@
+subscription_id             = "00000000-0000-0000-0000-000000000000"
+cluster_name                = "reducto-aks"
+cluster_resource_group_name = "reducto-rg"
+
+# Generation 2, nested virtualization, x86-64 (Pod Sandboxing requirement).
+node_vm_size   = "Standard_D16s_v5"
+node_min_count = 1
+node_max_count = 3
+
+# The chart's worker KSA is <release>-reducto in the release namespace.
+reducto_namespace           = "reducto"
+worker_service_account_name = "reducto-reducto"
+
+storage_account_id      = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/reducto-rg/providers/Microsoft.Storage/storageAccounts/reductodata"
+storage_container_names = ["reducto"]

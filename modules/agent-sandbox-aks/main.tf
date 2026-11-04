@@ -5,16 +5,22 @@
 # What it installs (the chart installs none of these):
 #   node-pool.tf         dedicated Pod Sandboxing (Kata) pool, tainted + labeled
 #   runtime-class.tf     RuntimeClass on the AKS Kata handler with scheduling
-#   agent-sandbox.tf     kubernetes-sigs/agent-sandbox v1.0.7 (--extensions) +
-#                        CRDs, namespaces (PSS restricted), controller Role,
-#                        the controller pod-create ValidatingAdmissionPolicy
-#   network-policy.tf    sandbox namespace deny-all with ZERO egress (no DNS),
-#                        plus a Cilium egressDeny on Cilium clusters
-#   admission.tf         native ValidatingAdmissionPolicies: Kata runtime +
-#                        no SA token for sandbox pods, Unmanaged
-#                        SandboxTemplates, no egress rule in sandbox policies
+#   controller.tf *      kubernetes-sigs/agent-sandbox v1.0.7 (--extensions) +
+#                        CRDs, agent-sandbox-system (PSS restricted),
+#                        controller Role, the controller pod-create VAP
+#   namespace.tf *       sandbox namespace (PSS restricted) + deny-all with
+#                        ZERO egress (no DNS)
+#   admission.tf *       native ValidatingAdmissionPolicies: Kata runtime, no SA
+#                        token, sandbox nodeSelector, no host namespaces;
+#                        Unmanaged SandboxTemplates; no egress rule
+#   installer-rbac.tf *  optional least-privilege RBAC for the helm installer
+#   network-policy.tf    Cilium egressDeny on Cilium clusters (AKS-specific)
 #   workload-identity.tf user-assigned identity + federated credentials for the
 #                        Reducto worker KSA, Blob Data Contributor + Delegator
+#
+# Files marked * (and manifests/) are shared verbatim with
+# modules/agent-sandbox-gke; they should move to a shared
+# modules/agent-sandbox-k8s.
 #
 # Ownership split with the Helm chart (installed with
 # agentService.sandboxProviders.k8sAgentSandbox.networkPolicy.createDenyAll:
@@ -65,12 +71,12 @@ data "azapi_resource" "cluster" {
     }
 
     postcondition {
-      condition     = !var.enable_workload_identity || try(self.output.oidc_issuer_enabled, false) == true
-      error_message = "enable_workload_identity needs the cluster OIDC issuer: az aks update -g <rg> -n <cluster> --enable-oidc-issuer."
+      condition     = !var.enable_worker_workload_identity || try(self.output.oidc_issuer_enabled, false) == true
+      error_message = "enable_worker_workload_identity needs the cluster OIDC issuer: az aks update -g <rg> -n <cluster> --enable-oidc-issuer."
     }
 
     postcondition {
-      condition     = !(var.enable_workload_identity && var.require_workload_identity_webhook) || try(self.output.workload_identity_enabled, false) == true
+      condition     = !(var.enable_worker_workload_identity && var.require_workload_identity_webhook) || try(self.output.workload_identity_enabled, false) == true
       error_message = "The AKS workload-identity webhook is off: az aks update -g <rg> -n <cluster> --enable-workload-identity, or set require_workload_identity_webhook = false and use the chart's azureWorkloadIdentity explicit projection."
     }
   }
@@ -80,29 +86,15 @@ locals {
   network_policy = data.azapi_resource.cluster.output.network_policy
   is_cilium      = local.network_policy == "cilium"
 
-  # Sandbox namespaces run untrusted code: enforce the restricted Pod Security
-  # Standard (the chart's pool pods are restricted-compliant: uid/gid 1000,
-  # runAsNonRoot, seccomp RuntimeDefault, drop ALL).
-  pss_restricted_labels = {
-    "pod-security.kubernetes.io/enforce" = "restricted"
-    "pod-security.kubernetes.io/audit"   = "restricted"
-    "pod-security.kubernetes.io/warn"    = "restricted"
-  }
+  # pss_restricted_labels and controller_namespace are defined in the shared
+  # controller.tf.
 
-  controller_namespace = "agent-sandbox-system"
-  # Namespaces the controller may write in (Role below). Its own namespace gets
-  # only the leader-election lease.
-  write_namespaces = [local.controller_namespace, var.sandbox_namespace]
-
-  sandbox_node_selector = { (var.node_label_key) = var.node_label_value }
+  # Same names as the GKE module, which the shared admission.tf reads.
+  sandbox_node_labels = { (var.node_label_key) = var.node_label_value }
   sandbox_toleration = {
     key      = var.node_taint_key
     operator = "Equal"
     value    = "true"
     effect   = "NoSchedule"
   }
-
-  # The AKS-provided class: Microsoft Learn "Pod sandboxing with AKS".
-  aks_builtin_runtime_class = "kata-vm-isolation"
-  runtime_class_name        = var.create_runtime_class ? var.runtime_class_name : local.aks_builtin_runtime_class
 }

@@ -4776,12 +4776,6 @@ spec:
       - name: tmp
         emptyDir: {}
       priorityClassName: system-cluster-critical
-      nodeSelector:
-        node-type: system
-      tolerations:
-      - key: CriticalAddonsOnly
-        operator: Exists
-        effect: NoSchedule
       topologySpreadConstraints:
       - maxSkew: 1
         minDomains: 2

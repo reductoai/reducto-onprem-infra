@@ -33,7 +33,7 @@ resource "kubectl_manifest" "runtime_class" {
       }
     }
     scheduling = {
-      nodeSelector = local.sandbox_node_selector
+      nodeSelector = local.sandbox_node_labels
       tolerations  = [local.sandbox_toleration]
     }
   })

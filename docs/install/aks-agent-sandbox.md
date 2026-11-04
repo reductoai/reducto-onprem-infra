@@ -24,11 +24,11 @@ The chart's requirements are in reductoai/api `agent-service/AGENTS.md`, section
 | The controller may create pods in the sandbox namespace | Adds a namespaced Role and RoleBinding, plus the hosted ValidatingAdmissionPolicy that allows controller pod creation in that namespace only. |
 | Pod security that admits uid and gid 1000 | Labels the sandbox namespace with Pod Security Standards `restricted`. The chart's pool pods meet that standard. |
 | The image `<tag>-agent-sandbox` and its pull Secret | Not covered. See [Image](#image). |
-| Installer RBAC | Not covered. See [Installer RBAC](#installer-rbac). |
+| Installer RBAC | Optional: `installer_subjects` gets the sandbox-namespace rights the chart needs. See [Installer RBAC](#installer-rbac). |
 
 The module also does the following:
 
-- It adds native ValidatingAdmissionPolicies. They require sandbox pods to use the Kata RuntimeClass and to set no ServiceAccount token. SandboxTemplates must be `Unmanaged`. No NetworkPolicy in the sandbox namespace may carry an egress rule.
+- It adds native ValidatingAdmissionPolicies. Sandbox pods must use the Kata RuntimeClass, set no ServiceAccount token, select the sandbox pool, and use no host namespaces. SandboxTemplates must be `Unmanaged`. No NetworkPolicy in the sandbox namespace may carry an egress rule.
 - It sets up Azure Workload Identity for the Reducto worker. It creates a user-assigned identity with federated credentials. The identity gets `Storage Blob Data Contributor` on the containers and `Storage Blob Delegator` on the account.
 
 ### Who owns what
@@ -49,7 +49,7 @@ The existing AKS cluster needs:
 - **Kubernetes 1.30 or later.** The module uses `ValidatingAdmissionPolicy` v1. Pod Sandboxing itself needs 1.27 or later.
 - **Azure CNI powered by Cilium.** `az aks show -g <rg> -n <cluster> --query networkProfile` must show `"networkPolicy": "cilium"` (and `"networkDataplane": "cilium"`). A cluster created without it can be updated in place: see Microsoft's "Update an existing cluster to Azure CNI Powered by Cilium". Calico works only with opt-in (`allowed_network_policies = ["cilium", "calico"]`); see [Calico](#calico). Azure NPM (`networkPolicy: azure`) is rejected.
 - **The OIDC issuer and the workload-identity webhook** (`az aks update --enable-oidc-issuer --enable-workload-identity`). If you set `require_workload_identity_webhook = false` and use the chart's explicit token projection, only the OIDC issuer is needed.
-- **A system-mode node pool with at least 2 nodes.** The controller runs 2 replicas on `kubernetes.azure.com/mode=system` and tolerates `CriticalAddonsOnly`, with a hard per-node spread. If needed, change `controller_node_selector`, `controller_tolerations`, or `controller_replicas`.
+- **At least 2 untainted nodes outside the sandbox pool.** The controller runs 2 replicas with a hard per-node spread and no node selector, the same as the GKE module. The sandbox pool's taint keeps it off the sandbox nodes. A system pool with `only_critical_addons_enabled` (taint `CriticalAddonsOnly`) does not count, because the controller does not tolerate that taint.
 - **vCPU quota for the sandbox VM family** in the region. The default is `Standard_D16s_v5`. The size must be generation 2 with nested virtualization, and x86-64 (Arm64 is not supported).
 - **The FIPS and Trusted Launch constraints.** Neither can be enabled on a Pod Sandboxing pool.
 
@@ -66,7 +66,7 @@ The workstation needs:
 
 ## Apply
 
-1. Write `examples/aks/terraform.tfvars`. `*.tfvars` is git-ignored.
+1. Copy `examples/aks/terraform.tfvars.example` to `terraform.tfvars` and fill it in. `*.tfvars` is git-ignored.
 
    ```hcl
    subscription_id             = "00000000-0000-0000-0000-000000000000"
@@ -77,8 +77,9 @@ The workstation needs:
    node_min_count = 1
    node_max_count = 3
 
-   # <release namespace>/<release>-reducto: the chart's worker ServiceAccount.
-   workload_identity_service_accounts = ["reducto/reducto-reducto"]
+   # The chart's worker ServiceAccount: <release>-reducto in the release namespace.
+   reducto_namespace           = "reducto"
+   worker_service_account_name = "reducto-reducto"
    storage_account_id      = "/subscriptions/.../resourceGroups/.../providers/Microsoft.Storage/storageAccounts/reductodata"
    storage_container_names = ["reducto"]
    ```
@@ -113,31 +114,19 @@ The workstation needs:
 
 ## Chart values
 
-`terraform output -raw chart_values_yaml` prints the values that depend on the
-module. With the defaults, it prints:
+The module's outputs have the same names as the GKE module's:
 
-```yaml
-agentService:
-  sandboxProviders:
-    k8sAgentSandbox:
-      enabled: true
-      namespace: reducto-agent-sandbox
-      runtimeClassName: reducto-kata
-      allowRunc: false
-      networkPolicy:
-        enabled: true
-        createDenyAll: false
-serviceAccount:
-  create: true
-  annotations:
-    azure.workload.identity/client-id: <identity client id>
-    azure.workload.identity/tenant-id: <tenant id>
-```
+- **`k8s_agent_sandbox_values`** goes under `agentService.sandboxProviders.k8sAgentSandbox`. It holds:
+  - `namespace`
+  - `runtimeClassName: reducto-kata`
+  - `allowRunc: false`
+  - the sandbox pool's `nodeSelector` and `tolerations`; the module's RuntimeClass adds them too, and a duplicate is harmless
+  - `networkPolicy: {enabled: true, createDenyAll: false}`
+- **`worker_service_account_annotations`** goes under `serviceAccount.annotations`. It holds `azure.workload.identity/client-id` and `azure.workload.identity/tenant-id`.
+- **`worker_pod_labels`** (`azure.workload.identity/use: "true"`) goes under the podLabels of every component that uses Azure storage (see below).
+- **`worker_identity_client_id`** and **`worker_identity_tenant_id`** are for the chart's explicit projection (`azureWorkloadIdentity`). Use them instead of the annotations when the webhook is off.
 
-With `create_runtime_class = false` (the AKS built-in `kata-vm-isolation`), the
-output also has `nodeSelector` and `tolerations` for the sandbox pool.
-
-Merge that output with the rest of the on-prem agent-service values (AGENTS.md, "On-prem"):
+Merge them with the rest of the on-prem agent-service values (AGENTS.md, "On-prem"):
 
 ```yaml
 agentService:
@@ -207,6 +196,8 @@ The Helm installer needs these rights (AGENTS.md):
 - `get` RuntimeClasses.
 - `get` Secrets in the release namespace and the sandbox namespace, for the token `lookup`.
 
+If the installer is not cluster-admin, list it in `installer_subjects`. The module (shared `installer-rbac.tf`) then grants it the sandbox-namespace rights and `get` on the RuntimeClass. The sandbox-namespace rights include every verb the chart's agent-service Role grants, because RBAC refuses to let a subject create a Role with more than it holds. Rights in the release namespace are not covered.
+
 Without cluster-scoped RBAC, set `agentService.auth.createAuthDelegatorBinding: false` and bind `system:auth-delegator` by hand.
 
 ### Storage credentials
@@ -234,10 +225,10 @@ see only the objects. These checks test the behaviour.
    kubectl -n agent-sandbox-system rollout status deploy/agent-sandbox-controller
    kubectl api-resources --api-group=agents.x-k8s.io            # sandboxes   v1beta1
    kubectl api-resources --api-group=extensions.agents.x-k8s.io # sandboxclaims/templates/warmpools
-   kubectl get validatingadmissionpolicy | grep -E 'restrict-controller-pod-create|reducto-sandbox'
+   kubectl get validatingadmissionpolicy | grep -E 'restrict-controller-pod-create|agent-sandbox-'
    ```
 
-2. **Admission denies a runc pod in the sandbox namespace.** Save the probe manifest from step 3 as `egress-probe.yaml`. Delete its `runtimeClassName` line, and dry-run it. The command must fail, and the error must name `reducto-sandbox-pod-isolation`. The manifest meets the restricted Pod Security Standard, so the denial comes from this policy, not from PodSecurity.
+2. **Admission denies a runc pod in the sandbox namespace.** Save the probe manifest from step 3 as `egress-probe.yaml`. Delete its `runtimeClassName` line, and dry-run it. The command must fail, and the error must name `agent-sandbox-pod-isolation`. The manifest meets the restricted Pod Security Standard, so the denial comes from this policy, not from PodSecurity.
 
    ```sh
    kubectl apply --dry-run=server -f egress-probe.yaml
@@ -288,6 +279,8 @@ see only the objects. These checks test the behaviour.
    kubectl -n reducto-agent-sandbox delete pod egress-probe
    ```
 
+   The module's RuntimeClass adds the sandbox pool's nodeSelector and toleration, which the admission policy requires. With `create_runtime_class = false`, add `nodeSelector: {node-type: reducto-sandbox}` and the `reducto.ai/sandbox` toleration to the probe yourself.
+
    The first line, from `uname -r`, is the Kata guest kernel. It differs from the node's kernel; Microsoft's example shows `6.6.96.mshv1`. Any `OPEN` line is a failed install: stop and fix it.
 
 4. **Warm pool:** run `kubectl -n reducto-agent-sandbox get sandboxwarmpool,pods -o wide`. The pods must be Ready on the sandbox nodes. Then check the agent-service start log `sandbox.providers`.
@@ -335,9 +328,14 @@ ValidatingAdmissionPolicies, all with `failurePolicy: Fail`:
 | Policy | Rule |
 |---|---|
 | `restrict-controller-pod-create` | Copied from hosted. The controller ServiceAccount may create or update pods only in the sandbox namespace. |
-| `reducto-sandbox-pod-isolation` | Every pod in the sandbox namespace, and every pod with `agents.x-k8s.io/sandbox-name-hash`, must set the Kata `runtimeClassName` and `automountServiceAccountToken: false`. |
-| `reducto-sandbox-template-unmanaged` | SandboxTemplates must set `networkPolicyManagement: Unmanaged`. |
-| `reducto-sandbox-networkpolicy-no-egress` | No NetworkPolicy in the sandbox namespace may carry an egress rule. |
+| `agent-sandbox-pod-isolation` | Every pod in the sandbox namespace, and every pod with `agents.x-k8s.io/sandbox-name-hash`, must meet four rules: set the Kata `runtimeClassName`, set `automountServiceAccountToken: false`, select the sandbox pool (`node-type: reducto-sandbox`), and use no hostNetwork, hostPID, or hostIPC. |
+| `agent-sandbox-template-unmanaged` | SandboxTemplates in the sandbox namespace must set `networkPolicyManagement: Unmanaged`. |
+| `agent-sandbox-namespace-no-egress` | No NetworkPolicy in the sandbox namespace may carry an egress rule. The same template also rejects GKE `FQDNNetworkPolicy`; AKS does not serve that resource. |
+
+The policy template (`manifests/admission/sandbox-admission.yaml.tftpl`) is the
+GKE module's file, copied verbatim. Some of its comments and denial messages
+say "gVisor" or "GKE Sandbox pool". The rules themselves read the Kata
+RuntimeClass name and the AKS pool label from the module's variables.
 
 Why native policies instead of Kyverno:
 
@@ -354,7 +352,8 @@ not conflict with these policies.
 - **`kubectl port-forward` does not work for Kata pods** (agent-sandbox AKS example). The agent service connects by pod IP, and `kubectl exec` works.
 - **Microsoft Defender for Containers does not assess Kata pods.**
 - **The sandbox namespace is apply-only.** `terraform destroy` leaves it, with the chart objects in it.
-- **To bump the controller,** bump it in reductoai/api (`terragrunt/modules/aws-eks-addons/manifests/agent-sandbox/patch.py`), then copy the four files of that directory to `modules/agent-sandbox-aks/manifests/agent-sandbox/`. `diff -r` against api is the drift check. The only AKS change, the controller's node selector, tolerations, and replicas, is applied in Terraform (`agent-sandbox.tf`).
+- **Some files are shared with the GKE module.** `controller.tf`, `namespace.tf`, `admission.tf`, `installer-rbac.tf` and `manifests/` are copies of `modules/agent-sandbox-gke` (verbatim, except for the cluster gate in `depends_on`). Change them in both modules until they move to a shared `modules/agent-sandbox-k8s`.
+- **To bump the controller,** first bump hosted in reductoai/api (`terragrunt/modules/aws-eks-addons/manifests/agent-sandbox/patch.py`). Then carry the bump into the on-prem `patch.py` and run it (`uv run --with pyyaml python3 manifests/agent-sandbox/patch.py`, then `--check`). The on-prem `patch.py` drops only the hosted controller's EKS system-pool placement. Copy the result to both modules.
 
 ## Not yet verified
 

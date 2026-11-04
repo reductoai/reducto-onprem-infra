@@ -49,10 +49,16 @@ variable "sandbox_namespace" {
   default     = "reducto-agent-sandbox"
 }
 
-variable "workload_identity_service_accounts" {
-  description = "\"<namespace>/<name>\" of the Reducto worker ServiceAccount(s): <release namespace>/<release>-reducto."
-  type        = list(string)
-  default     = ["reducto/reducto-reducto"]
+variable "reducto_namespace" {
+  description = "Namespace of the Reducto Helm release."
+  type        = string
+  default     = "reducto"
+}
+
+variable "worker_service_account_name" {
+  description = "Reducto worker KSA: <release>-reducto."
+  type        = string
+  default     = "reducto-reducto"
 }
 
 variable "storage_account_id" {

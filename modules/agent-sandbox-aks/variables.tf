@@ -151,18 +151,17 @@ variable "node_taint_key" {
 
 variable "create_runtime_class" {
   description = <<-EOT
-    true: create a RuntimeClass (runtime_class_name) on the AKS Kata handler with the sandbox
-    pool's nodeSelector + toleration and an explicit overhead, so the chart needs only
-    runtimeClassName (the hosted gvisor pattern). false: use the AKS built-in
-    kata-vm-isolation RuntimeClass, and set the chart's nodeSelector/tolerations from the
-    chart_values output.
+    true: create runtime_class_name on the AKS Kata handler with the sandbox pool's nodeSelector +
+    toleration and an explicit overhead (the hosted gvisor pattern). false: use a RuntimeClass that
+    already exists, normally the AKS built-in kata-vm-isolation (set runtime_class_name to it); the
+    pods then select the pool through the k8s_agent_sandbox_values nodeSelector/tolerations.
   EOT
   type        = bool
   default     = true
 }
 
 variable "runtime_class_name" {
-  description = "Name of the RuntimeClass the sandbox pods must use when create_runtime_class = true. Must not be \"gvisor\" (the chart reserves it for hosted)."
+  description = "RuntimeClass the sandbox pods must use (chart runtimeClassName; the admission policy pins it). Created by the module when create_runtime_class = true; otherwise it must exist (AKS built-in: kata-vm-isolation). Must not be \"gvisor\" (the chart reserves it for hosted)."
   type        = string
   default     = "reducto-kata"
 
@@ -209,33 +208,20 @@ variable "sandbox_namespace" {
   }
 }
 
-variable "controller_replicas" {
-  description = "Replicas of the agent-sandbox controller (leader-elected). The vendored manifest spreads them across nodes with a hard constraint, so the controller node pool needs this many nodes."
-  type        = number
-  default     = 2
+variable "pss_version" {
+  description = "Pod Security Standards version pinned on the controller and sandbox namespaces."
+  type        = string
+  default     = "latest"
 }
 
-variable "controller_node_selector" {
-  description = "nodeSelector of the agent-sandbox controller. Replaces the hosted node-type=system selector of the vendored manifest. Default: the AKS system-mode pools."
-  type        = map(string)
-  default = {
-    "kubernetes.azure.com/mode" = "system"
-  }
-}
-
-variable "controller_tolerations" {
-  description = "Tolerations of the agent-sandbox controller. Default tolerates the AKS CriticalAddonsOnly system-pool taint."
+variable "installer_subjects" {
+  description = "RBAC subjects (the identity that runs `helm install`) granted the sandbox-namespace rights the chart needs: Role/RoleBinding/Secret/NetworkPolicy/SandboxTemplate/SandboxWarmPool write, the verbs the chart's agent-service Role grants, and get on RuntimeClasses. Empty: none (the installer is cluster-admin). Rights in the release namespace are not covered here."
   type = list(object({
-    key      = string
-    operator = string
-    value    = optional(string)
-    effect   = optional(string)
+    kind      = string
+    name      = string
+    namespace = optional(string)
   }))
-  default = [{
-    key      = "CriticalAddonsOnly"
-    operator = "Exists"
-    effect   = "NoSchedule"
-  }]
+  default = []
 }
 
 variable "create_cilium_egress_deny" {
@@ -248,8 +234,8 @@ variable "create_cilium_egress_deny" {
 # Workload Identity for the Reducto worker (Blob storage)
 ################################################################################
 
-variable "enable_workload_identity" {
-  description = "Create the user-assigned identity, its federated credentials, and the Blob role assignments for the Reducto worker ServiceAccount."
+variable "enable_worker_workload_identity" {
+  description = "Create the user-assigned identity, its federated credential, and the Blob role assignments for the Reducto worker KSA."
   type        = bool
   default     = true
 }
@@ -272,20 +258,16 @@ variable "identity_resource_group_name" {
   default     = null
 }
 
-variable "workload_identity_service_accounts" {
-  description = <<-EOT
-    "<namespace>/<name>" of each Kubernetes ServiceAccount that may federate to the identity. The
-    Helm chart's worker ServiceAccount is <release>-reducto in the release namespace (release
-    "reducto" in namespace "reducto" -> "reducto/reducto-reducto"). An identity holds at most 20
-    federated credentials.
-  EOT
-  type        = list(string)
-  default     = ["reducto/reducto-reducto"]
+variable "reducto_namespace" {
+  description = "Namespace of the Reducto Helm release."
+  type        = string
+  default     = "reducto"
+}
 
-  validation {
-    condition     = length(var.workload_identity_service_accounts) <= 20 && alltrue([for s in var.workload_identity_service_accounts : can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?/[a-z0-9]([-.a-z0-9]*[a-z0-9])?$", s))])
-    error_message = "Each entry must be \"<namespace>/<serviceaccount>\"; at most 20 entries."
-  }
+variable "worker_service_account_name" {
+  description = "KSA of the Reducto workers. The chart names it <release>-reducto (serviceAccount.create = true)."
+  type        = string
+  default     = "reducto-reducto"
 }
 
 variable "workload_identity_audience" {
@@ -295,13 +277,13 @@ variable "workload_identity_audience" {
 }
 
 variable "storage_account_id" {
-  description = "ARM ID of the customer storage account Reducto uses. Storage Blob Delegator is granted here (user delegation keys are an account-level operation). Required when enable_workload_identity."
+  description = "ARM ID of the customer storage account Reducto uses. Storage Blob Delegator is granted here (user delegation keys are an account-level operation). Required when enable_worker_workload_identity."
   type        = string
   default     = null
 }
 
 variable "storage_container_names" {
-  description = "Blob containers in storage_account_id that get Storage Blob Data Contributor (read, write, delete; bounds the permissions of a user delegation SAS). Required when enable_workload_identity."
+  description = "Blob containers in storage_account_id that get Storage Blob Data Contributor (read, write, delete; bounds the permissions of a user delegation SAS). Required when enable_worker_workload_identity."
   type        = list(string)
   default     = []
 }

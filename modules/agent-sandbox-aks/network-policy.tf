@@ -1,10 +1,12 @@
-# Sandbox network boundary: ZERO egress.
+# Sandbox network boundary: ZERO egress. The deny-all itself is in the shared
+# namespace.tf; this file holds the AKS-specific reasoning and the Cilium
+# egress deny.
 #
 # The sandbox pods get no egress at all — no Envoy, no DNS. The agent service
 # reaches them on 8080/9090 (the chart's ingress policy) and moves every file
 # itself; it refuses to start while any policy in the sandbox namespace has an
-# egress rule. Terraform owns this deny-all; install the chart with
-# networkPolicy.createDenyAll: false.
+# egress rule. Terraform owns the deny-all (namespace.tf); install the chart
+# with networkPolicy.createDenyAll: false.
 #
 # Pod -> own node, Azure IMDS (169.254.169.254) and wireserver (168.63.129.16).
 # The chart prerequisite is "a host firewall on the sandbox nodes against the
@@ -29,26 +31,6 @@
 #     the install doc lists it as an optional extra layer.
 # The provider only sees the policy objects; the install doc's probe pod and
 # the agent-service smoke script are the end-to-end checks.
-
-resource "kubectl_manifest" "sandbox_deny_all" {
-  yaml_body = yamlencode({
-    apiVersion = "networking.k8s.io/v1"
-    kind       = "NetworkPolicy"
-    metadata = {
-      name      = "deny-all"
-      namespace = var.sandbox_namespace
-    }
-    spec = {
-      podSelector = {}
-      policyTypes = ["Ingress", "Egress"]
-    }
-  })
-
-  server_side_apply = true
-  wait              = true
-
-  depends_on = [kubectl_manifest.sandbox_namespace]
-}
 
 # Cilium only: an egressDeny for every endpoint in the sandbox namespace.
 # NetworkPolicies are additive allow-lists, so the deny-all above holds only
@@ -86,4 +68,6 @@ resource "kubectl_manifest" "sandbox_cilium_egress_deny" {
 
   server_side_apply = true
   wait              = true
+
+  depends_on = [kubectl_manifest.sandbox_namespace]
 }

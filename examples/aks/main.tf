@@ -65,9 +65,10 @@ module "agent_sandbox" {
 
   sandbox_namespace = var.sandbox_namespace
 
-  workload_identity_service_accounts = var.workload_identity_service_accounts
-  storage_account_id                 = var.storage_account_id
-  storage_container_names            = var.storage_container_names
+  reducto_namespace           = var.reducto_namespace
+  worker_service_account_name = var.worker_service_account_name
+  storage_account_id          = var.storage_account_id
+  storage_container_names     = var.storage_container_names
 
   tags = var.tags
 }

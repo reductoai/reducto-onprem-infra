@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Regenerate the vendored agent-sandbox manifests from an upstream release.
 
+GKE copy of reductoai/api terragrunt/modules/aws-eks-addons/manifests/agent-sandbox/patch.py
+(same VERSION, asset sha256s, controller digest, and RBAC narrowing). The only
+difference is _CONTROLLER_HARDENING: the hosted copy pins the controller to the
+EKS `node-type: system` pool with a CriticalAddonsOnly toleration, which a
+customer GKE cluster does not have, so this copy drops that placement. Keep the
+two in step on every version bump.
+
 The two vendored files in this directory are NOT hand-edited. They are the
 upstream GitHub release assets with a fixed, declared set of modifications
 applied by this script. The PATCHES list below IS the record of every change
@@ -33,8 +40,9 @@ import yaml
 
 # To bump: edit VERSION, refresh ASSET_SHA256 + CONTROLLER_IMAGE_DIGESTS below
 # from the new release, run `patch.py`, diff the rendered bundles and read the
-# release notes' "Breaking Changes". Renovate tracks the tag through the marker
-# below (renovate.json custom manager); its PR fails `--check` on purpose until
+# release notes' "Breaking Changes". The marker
+# below (this repo has no renovate custom manager for it yet: bump by hand, in
+# step with the hosted copy); a bump fails `--check` on purpose until
 # the sha256s and digest are refreshed.
 # renovate: datasource=github-releases depName=kubernetes-sigs/agent-sandbox
 VERSION = "v1.0.7"
@@ -281,10 +289,8 @@ class SetRuleVerbs:
 # HA: two replicas behind leader election (upstream ships one). A rollout or a
 # node disruption hands the lease over in seconds instead of leaving claims
 # waiting for a single pod to come back; maxUnavailable 0 keeps one replica up
-# through the rollout and the PDB in agent-sandbox.tf keeps one up through
-# Karpenter drift. Spread across nodes (hard) and zones (soft). On the
-# on-demand system pool (kyverno's placement): the app pools mix in spot, and
-# one reclaim wave can take both replicas, which a PDB does not stop.
+# through the rollout and the PDB in controller.tf keeps one up through
+# node upgrades. Spread across nodes (hard) and zones (soft).
 _CONTROLLER_HARDENING: Doc = {
     "spec": {
         "replicas": 2,
@@ -294,16 +300,13 @@ _CONTROLLER_HARDENING: Doc = {
         },
         "template": {
             "spec": {
-                # At priority 0, ingress-nginx can preempt it on the system pool.
+                # At priority 0, other workloads can preempt it. GKE admits
+                # system-cluster-critical outside kube-system only with a
+                # ResourceQuota scoped to that class in the namespace; the
+                # module renders one (controller.tf). No nodeSelector or
+                # toleration: GKE has no shared system-pool label, and the
+                # sandbox pool's taints keep the controller off sandbox nodes.
                 "priorityClassName": "system-cluster-critical",
-                "nodeSelector": {"node-type": "system"},
-                "tolerations": [
-                    {
-                        "key": "CriticalAddonsOnly",
-                        "operator": "Exists",
-                        "effect": "NoSchedule",
-                    }
-                ],
                 "topologySpreadConstraints": [
                     {
                         "maxSkew": 1,
@@ -377,8 +380,8 @@ _CONTROLLER_HARDENING: Doc = {
 }
 
 PATCHES: list[Patch] = [
-    # core.yaml — the namespace is owned by kubectl_manifest.agent_sandbox_namespace
-    # in agent-sandbox.tf (so it applies first with our PSS labels), and the core
+    # core.yaml — the namespace is owned by kubectl_manifest.controller_namespace
+    # in controller.tf (so it applies first with our PSS labels), and the core
     # controller Deployment is superseded by the --extensions one in extensions.yaml.
     RemoveDoc(file="core.yaml", kind="Namespace", name="agent-sandbox-system"),
     RemoveDoc(file="core.yaml", kind="Deployment", name="agent-sandbox-controller"),
@@ -395,7 +398,7 @@ PATCHES: list[Patch] = [
     # pod (e.g. `set image` for RCE) on any node. Reads (get/list/watch) stay
     # cluster-wide for the controller's informer, which has no watch-namespace
     # flag. The write verbs are re-granted per sandbox namespace by a Role in
-    # agent-sandbox.tf. The controller SA is bound to BOTH the core ClusterRole
+    # controller.tf. The controller SA is bound to BOTH the core ClusterRole
     # (pods/pvc/services) and the -extensions ClusterRole (pods, networkpolicies),
     # so both must be narrowed.
     SetRuleVerbs(

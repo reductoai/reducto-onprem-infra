@@ -40,7 +40,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "sandbox" {
   pod_subnet_id        = var.node_pod_subnet_id
   orchestrator_version = var.node_orchestrator_version
 
-  node_labels = local.sandbox_node_selector
+  node_labels = local.sandbox_node_labels
   node_taints = ["${var.node_taint_key}=true:NoSchedule"]
 
   # AKS has no do-not-disrupt equivalent: an upgrade drains each node, which
