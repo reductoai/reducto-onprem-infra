@@ -4,7 +4,8 @@
 #     the agent-sandbox controller creates and on every Pod in a sandbox
 #     namespace (gated on enable_agent_sandbox too).
 #   - require-sandbox-template-unmanaged: reject SandboxTemplates that would
-#     let the controller add its own allow-public-egress NetworkPolicy.
+#     let the controller add its own allow-public-egress NetworkPolicy (the
+#     sandbox namespaces allow no egress at all; see agent-sandbox.tf).
 #   - restrict-privileged-hostpath: generic Pod Security "baseline" admission
 #     backstop (independent of PSS namespace labels/RBAC).
 #
@@ -85,7 +86,7 @@ resource "kubectl_manifest" "kyverno_restrict_privileged_hostpath" {
 resource "kubectl_manifest" "kyverno_require_sandbox_gvisor" {
   count = var.enable_kyverno && var.enable_agent_sandbox ? 1 : 0
   yaml_body = templatefile("${path.module}/manifests/kyverno/require-sandbox-gvisor.yaml.tftpl", {
-    sandbox_namespaces = sort(local.pi_sandbox_namespaces)
+    sandbox_namespaces = sort(local.agent_sandbox_namespaces)
   })
   server_side_apply = true
   wait              = true

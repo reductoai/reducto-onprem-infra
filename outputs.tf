@@ -101,7 +101,7 @@ output "region" {
   value       = var.region
 }
 
-output "pi_egress_proxy_url" {
-  description = "HTTP_PROXY/HTTPS_PROXY value for sandbox pods: the Envoy egress proxy by pinned ClusterIP, since sandbox pods have no DNS"
-  value       = var.enable_agent_sandbox ? "http://${local.pi_egress_proxy_cluster_ip}:80" : null
+output "agent_sandbox_namespaces" {
+  description = "Zero-egress sandbox namespaces (deny-all NetworkPolicy, restricted PSS, gVisor enforced). Set the api chart's agentService.sandboxProviders.k8sAgentSandbox.namespace to one of them."
+  value       = var.enable_agent_sandbox ? sort(local.agent_sandbox_namespaces) : []
 }

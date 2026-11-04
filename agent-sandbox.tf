@@ -30,6 +30,11 @@
 # no certificate and no cert-manager.
 
 locals {
+  # Every namespace the controller may create sandbox pods in, minus its own.
+  # The api chart's agentService.sandboxProviders.k8sAgentSandbox.namespace
+  # must be one of these (default: reducto-agent-sandbox).
+  agent_sandbox_namespaces = setsubtract(var.agent_sandbox_write_namespaces, ["agent-sandbox-system"])
+
   agent_sandbox_pss_labels = {
     "pod-security.kubernetes.io/enforce" = "restricted"
     "pod-security.kubernetes.io/audit"   = "restricted"
@@ -117,12 +122,13 @@ resource "kubectl_manifest" "agent_sandbox_controller_pdb" {
 }
 
 # Every sandbox write-namespace must exist before its Role/RoleBinding
-# applies. agent-sandbox-system is created above; reducto-pi-sandbox is
+# applies. agent-sandbox-system is created above; reducto-agent-sandbox is
 # created here via SSA + apply_only (so a stack destroy never deletes it out
 # from under anything else namespaced to it), pinned to enforce=restricted —
-# sandbox namespaces run untrusted code.
+# sandbox namespaces run untrusted code. Restricted admits the chart's sandbox
+# pods (runAsNonRoot, uid/gid 1000, drop ALL, seccomp RuntimeDefault).
 resource "kubectl_manifest" "agent_sandbox_write_namespace" {
-  for_each = var.enable_agent_sandbox ? toset(setsubtract(var.agent_sandbox_write_namespaces, ["agent-sandbox-system"])) : toset([])
+  for_each = var.enable_agent_sandbox ? local.agent_sandbox_namespaces : toset([])
 
   yaml_body = yamlencode({
     apiVersion = "v1"
@@ -136,6 +142,39 @@ resource "kubectl_manifest" "agent_sandbox_write_namespace" {
   server_side_apply = true
   force_conflicts   = true
   apply_only        = true
+}
+
+# Zero egress: the sandbox makes no network calls of its own (the agent
+# service holds the model keys and moves files in and out through sandboxd), so
+# every pod in a sandbox namespace gets no egress at all — no DNS, no
+# internet, no VPC, no IMDS, no API server — and no ingress. NetworkPolicies
+# add up, so this deny-all is the floor; the api chart adds the one allow
+# (ingress to sandboxd 8080/9090 from the agent-service pods only; install with
+# k8sAgentSandbox.networkPolicy.createDenyAll=false, since this is the deny-all).
+# The agent service checks at start that a deny-all exists and that no policy
+# in the namespace has an egress rule, and refuses to start otherwise. Enforced
+# by the VPC CNI network policy agent (enableNetworkPolicy in eks.tf); the
+# node firewall in gvisor.tf closes the pod -> own-node path that NetworkPolicy
+# on EKS does not.
+resource "kubectl_manifest" "agent_sandbox_deny_all" {
+  for_each = var.enable_agent_sandbox ? local.agent_sandbox_namespaces : toset([])
+
+  yaml_body = yamlencode({
+    apiVersion = "networking.k8s.io/v1"
+    kind       = "NetworkPolicy"
+    metadata = {
+      name      = "deny-all"
+      namespace = each.value
+    }
+    spec = {
+      podSelector = {}
+      policyTypes = ["Ingress", "Egress"]
+    }
+  })
+
+  server_side_apply = true
+  wait              = true
+  depends_on        = [kubectl_manifest.agent_sandbox_write_namespace]
 }
 
 # Namespaced replacement for the cluster-wide WRITE (create/delete/patch/

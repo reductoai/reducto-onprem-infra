@@ -10,11 +10,11 @@ metadata:
       SandboxTemplate.spec.networkPolicyManagement defaults to Managed, and in
       that mode the agent-sandbox controller creates its own NetworkPolicy
       allowing egress to 0.0.0.0/0 minus private ranges on every port.
-      NetworkPolicies are additive, so that policy would let sandbox pods skip
-      the Envoy egress proxy and reach the internet directly. Terraform owns
-      sandbox network policy (pi-egress.tf); every template must opt out. The
-      CRD applies its default before admission, so an omitted field is
-      rejected too.
+      NetworkPolicies are additive, so that policy would undo the sandbox
+      namespace's zero-egress deny-all (agent-sandbox.tf) and let sandbox pods
+      reach the internet directly. Every template must opt out (the api chart
+      renders Unmanaged). The CRD applies its default before admission, so an
+      omitted field is rejected too.
 spec:
   validationFailureAction: Enforce
   webhookConfiguration:
@@ -30,8 +30,8 @@ spec:
       validate:
         message: >-
           SandboxTemplates must set spec.networkPolicyManagement: Unmanaged.
-          Sandbox NetworkPolicy is owned by Terraform; the controller's Managed
-          policy allows direct public egress.
+          Sandbox namespaces allow no egress; the controller's Managed policy
+          allows direct public egress.
         pattern:
           spec:
             networkPolicyManagement: Unmanaged
