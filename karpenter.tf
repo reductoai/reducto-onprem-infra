@@ -12,6 +12,58 @@ module "karpenter" {
   depends_on = [module.eks]
 }
 
+data "aws_partition" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_ami" "sandbox" {
+  count = var.enable_agent_sandbox && var.sandbox_ami_id != "" ? 1 : 0
+
+  filter {
+    name   = "image-id"
+    values = [var.sandbox_ami_id]
+  }
+}
+
+# A sandbox AMI shared from another account (Reducto's node-AMI pipeline) sits on the owner's
+# CMK. Launching it with an encrypted root volume re-encrypts the snapshot, which needs this IAM
+# grant on top of the owner's key policy; without it every sandbox node is terminated at launch
+# with Client.InvalidKMSKey.InvalidState. Same statement as hosted (api
+# terragrunt/modules/aws-eks-addons/karpenter.tf, NodeAmiOwnerKmsViaEc2). A separate inline
+# policy: the module's managed controller policy is at the 6144-character IAM limit.
+resource "aws_iam_role_policy" "karpenter_sandbox_ami_kms" {
+  count = local.sandbox_ami_foreign ? 1 : 0
+
+  name = "SandboxAmiOwnerKmsViaEc2"
+  role = module.karpenter.iam_role_name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "SandboxAmiOwnerKmsViaEc2"
+      Effect = "Allow"
+      Action = [
+        "kms:CreateGrant",
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:GenerateDataKeyWithoutPlaintext",
+        "kms:ReEncryptFrom",
+        "kms:ReEncryptTo",
+      ]
+      Resource = "arn:${data.aws_partition.current.partition}:kms:${var.region}:${local.sandbox_ami_owner}:key/*"
+      Condition = {
+        StringEquals = { "kms:ViaService" = "ec2.${var.region}.amazonaws.com" }
+        # Only the node-AMI key, not every key of the owner account.
+        "ForAnyValue:StringEquals" = { "kms:ResourceAliases" = ["alias/node-ami"] }
+      }
+    }]
+  })
+}
+
+locals {
+  sandbox_ami_owner   = try(data.aws_ami.sandbox[0].owner_id, "")
+  sandbox_ami_foreign = local.sandbox_ami_owner != "" && local.sandbox_ami_owner != data.aws_caller_identity.current.account_id
+}
+
 resource "helm_release" "karpenter-crd" {
   namespace  = "kube-system"
   name       = "karpenter-crd"
