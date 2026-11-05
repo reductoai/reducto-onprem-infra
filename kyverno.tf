@@ -61,10 +61,16 @@ resource "helm_release" "kyverno" {
         })
       },
       { for c in ["backgroundController", "cleanupController", "reportsController"] : c => local.kyverno_system_node_scheduling },
+      # The pre-delete hook (kyverno-scale-to-zero) runs on uninstall. With no toleration it
+      # cannot schedule once only the tainted system nodes are left, and helm uninstall (and
+      # terraform destroy) hangs until its timeout.
+      { webhooksCleanup = local.kyverno_system_node_scheduling },
     ))
   ]
 
-  depends_on = [module.eks, helm_release.prometheus_crds]
+  # module.vpc: on destroy, uninstall (and its hook, which pulls an image) runs before the NAT
+  # gateways go. Without it terraform tears down NAT in parallel and the hook pod cannot pull.
+  depends_on = [module.eks, module.vpc, helm_release.prometheus_crds]
 }
 
 resource "kubectl_manifest" "kyverno_prometheus_rules" {
